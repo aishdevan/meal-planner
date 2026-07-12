@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+ * Devan Family Meals design tokens
+ * Warm saffron & terracotta, iOS-glassy surfaces, auto light/dark.
+ * ------------------------------------------------------------------- */
+
+:root {
+  --bg: #faf5ee; /* warm cream */
+  --bg-deep: #f3ebe0;
+  --surface: #ffffff;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.85);
+  --ink: #2b1f16;
+  --soft: #8a7a6d;
+  --faint: #b3a496;
+  --line: rgba(43, 31, 22, 0.09);
+  --accent: #d97706; /* saffron */
+  --accent-deep: #b45309;
+  --accent-soft: rgba(217, 119, 6, 0.12);
+  --on-accent: #fff9f0;
+  --terra: #c2410c; /* terracotta */
+  --terra-soft: rgba(194, 65, 12, 0.1);
+  --good: #4d7c0f;
+  --good-soft: rgba(77, 124, 15, 0.12);
+  --bad: #b91c1c;
+  --bad-soft: rgba(185, 28, 28, 0.09);
+  --shadow: 0 10px 34px rgba(43, 31, 22, 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16100c;
+    --bg-deep: #100b08;
+    --surface: #241b14;
+    --glass: rgba(32, 24, 18, 0.72);
+    --glass-strong: rgba(36, 27, 20, 0.88);
+    --ink: #f4ece2;
+    --soft: #a5968a;
+    --faint: #6d6055;
+    --line: rgba(244, 236, 226, 0.1);
+    --accent: #f59e0b;
+    --accent-deep: #fbbf24;
+    --accent-soft: rgba(245, 158, 11, 0.16);
+    --on-accent: #241503;
+    --terra: #f07850;
+    --terra-soft: rgba(240, 120, 80, 0.15);
+    --good: #a3c24a;
+    --good-soft: rgba(163, 194, 74, 0.15);
+    --bad: #f38585;
+    --bad-soft: rgba(243, 133, 133, 0.13);
+    --shadow: 0 10px 34px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-surface: var(--surface);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-terra: var(--terra);
+  --color-terra-soft: var(--terra-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, var(--accent-soft), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  /* Glassy floating card */
+  .card {
+    border-radius: 1.5rem;
+    border: 1px solid var(--line);
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow);
+  }
+
+  /* Bottom sheet */
+  .sheet {
+    border-top-left-radius: 2rem;
+    border-top-right-radius: 2rem;
+    border-top: 1px solid var(--line);
+    background: var(--glass-strong);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+  }
+
+  .btn-primary {
+    border-radius: 1.25rem;
+    background: linear-gradient(135deg, var(--accent), var(--terra));
+    color: var(--on-accent);
+    font-weight: 600;
+    transition: transform 0.1s ease, opacity 0.15s ease;
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-secondary {
+    border-radius: 1.25rem;
+    border: 1px solid var(--line);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--ink);
+    font-weight: 600;
+    transition: transform 0.1s ease;
+  }
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+
+  .input {
+    border-radius: 1.25rem;
+    border: 1px solid var(--line);
+    background: var(--glass);
+    color: var(--ink);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.875rem;
+  }
+  .input::placeholder {
+    color: var(--faint);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 11px;
+  }
+}
