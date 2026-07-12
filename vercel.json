@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/push/nudge",
+      "schedule": "0 16 * * 0"
+    }
+  ]
+}

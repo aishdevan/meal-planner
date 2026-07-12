@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Baby,
+  Bell,
   Check,
   ChevronLeft,
   Drumstick,
@@ -14,6 +16,12 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import {
+  currentSubscription,
+  pushSupport,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-client";
 import type { Absence, Member } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -25,6 +33,7 @@ export default function SettingsPage() {
         shortcutToken: string | null;
         bookmarksEndpoint: string;
         claudeConfigured: boolean;
+        vapidPublicKey: string | null;
       }>("/api/settings"),
     refetchInterval: false,
   });
@@ -128,6 +137,8 @@ export default function SettingsPage() {
         </ul>
       </section>
 
+      <ReminderSection vapidPublicKey={settings?.vapidPublicKey ?? null} />
+
       <section className="card p-4">
         <h2 className="flex items-center gap-2 font-bold tracking-tight">
           <Smartphone size={17} className="text-accent" /> “Save to Meal
@@ -179,3 +190,79 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) {
+  const [status, setStatus] = useState<
+    "loading" | "off" | "on" | "unsupported" | "needs-install"
+  >("loading");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const support = pushSupport();
+    if (support !== "ok") {
+      setStatus(support === "needs-install" ? "needs-install" : "unsupported");
+      return;
+    }
+    currentSubscription().then((sub) => setStatus(sub ? "on" : "off"));
+  }, []);
+
+  async function toggle() {
+    if (!vapidPublicKey) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (status === "on") {
+        await unsubscribeFromPush();
+        setStatus("off");
+      } else {
+        await subscribeToPush(vapidPublicKey);
+        setStatus("on");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="flex items-center gap-2 font-bold tracking-tight">
+        <Bell size={17} className="text-accent" /> Sunday reminder
+      </h2>
+      <p className="mt-1 text-sm text-soft">
+        A gentle Sunday-morning nudge on this phone: &ldquo;time to plan the
+        week&rdquo;.
+      </p>
+      {status === "needs-install" && (
+        <p className="mt-2 rounded-2xl bg-accent-soft px-3.5 py-2.5 text-xs text-accent-deep">
+          Install the app first (Share → Add to Home Screen) — iPhones only
+          allow notifications for installed apps.
+        </p>
+      )}
+      {status === "unsupported" && (
+        <p className="mt-2 text-xs text-faint">
+          This browser doesn&apos;t support web notifications.
+        </p>
+      )}
+      {(status === "on" || status === "off") && (
+        <button
+          onClick={toggle}
+          disabled={busy || !vapidPublicKey}
+          className={`mt-3 w-full py-3 text-sm disabled:opacity-50 ${
+            status === "on" ? "btn-secondary" : "btn-primary"
+          }`}
+        >
+          {busy
+            ? "Working…"
+            : status === "on"
+              ? "Reminder is on — turn off for this phone"
+              : "Turn on the Sunday reminder"}
+        </button>
+      )}
+      {error && <p className="mt-2 text-xs text-bad">{error}</p>}
+    </section>
+  );
+}
+

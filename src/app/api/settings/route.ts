@@ -9,5 +9,6 @@ export async function GET(req: NextRequest) {
     bookmarksEndpoint: `${origin}/api/bookmarks`,
     claudeConfigured:
       Boolean(process.env.ANTHROPIC_API_KEY) && process.env.MOCK_CLAUDE !== "1",
+    vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null,
   });
 }

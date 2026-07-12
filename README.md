@@ -34,7 +34,10 @@ pnpm vitest run                # logic tests (grocery derivation, constraints)
 
 `.env.local` keys: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `MOCK_CLAUDE`,
 `AUTH_SECRET` (rotating logs out all devices), `HOUSEHOLD_PASSCODE`,
-`SHORTCUT_TOKEN` (Apple Shortcut bearer token).
+`SHORTCUT_TOKEN` (Apple Shortcut bearer token),
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`
+(web push — `npx web-push generate-vapid-keys`), `CRON_SECRET` (protects the
+Sunday-nudge cron endpoint; Vercel sends it automatically).
 
 ## Deploying (one-time)
 
@@ -44,7 +47,11 @@ pnpm vitest run                # logic tests (grocery derivation, constraints)
    `pnpm tsx scripts/seed.ts` locally with `DATABASE_URL` pointed at Neon.
 3. **Env vars on Vercel**: `ANTHROPIC_API_KEY` (console.anthropic.com),
    `AUTH_SECRET`, `HOUSEHOLD_PASSCODE`, `SHORTCUT_TOKEN` (generate fresh:
-   `openssl rand -hex 16`), and remove/leave `MOCK_CLAUDE` unset.
+   `openssl rand -hex 16`), `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+   `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:you@example.com`),
+   `CRON_SECRET` (any random string), and remove/leave `MOCK_CLAUDE` unset.
+   The Sunday-4pm-UTC cron in `vercel.json` sends the "plan your week" push
+   to every phone that enabled the reminder in Settings.
 4. **Phones**: open the URL in Safari → Share → **Add to Home Screen** on both
    phones, enter the passcode once each.
 5. **Instagram sharing**: follow the Shortcut guide inside the app under

@@ -24,6 +24,11 @@ export async function middleware(req: NextRequest) {
     req.headers.get("authorization");
   if (shortcutPost) return NextResponse.next();
 
+  // Vercel Cron hits the nudge with its own bearer token; the route validates.
+  if (pathname === "/api/push/nudge" && req.headers.get("authorization")) {
+    return NextResponse.next();
+  }
+
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
   const authed = cookie === (await expectedAuthToken());
   if (authed) return NextResponse.next();

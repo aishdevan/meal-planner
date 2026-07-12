@@ -6,7 +6,7 @@
  *  - navigation → network-first, fall back to cached page shell
  * Mutations (POST/PATCH/DELETE) always require the network.
  */
-const CACHE = "meals-v1";
+const CACHE = "meals-v2";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -55,6 +55,40 @@ async function networkFirst(req) {
     throw new Error("offline and not cached");
   }
 }
+
+/* Web push — the Sunday "plan your week" nudge (installed PWAs, iOS 16.4+). */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    /* non-JSON payload */
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? "Devan Family Meals", {
+      body: data.body ?? "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: data.url ?? "/week" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? "/week";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const win of wins) {
+        if ("focus" in win) {
+          win.navigate(url);
+          return win.focus();
+        }
+      }
+      return clients.openWindow(url);
+    }),
+  );
+});
 
 async function staleWhileRevalidate(req) {
   const cache = await caches.open(CACHE);

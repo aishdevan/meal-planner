@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Carrot,
   Check,
   ChevronLeft,
   ChevronRight,
+  CloudOff,
   Plus,
   ShoppingCart,
   Store,
@@ -14,6 +15,12 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { addDays, mondayOf, todayString } from "@/lib/dates";
+import {
+  enqueueToggle,
+  flushQueue,
+  isNetworkError,
+  loadQueue,
+} from "@/lib/offline-queue";
 import type { GroceryItem } from "@/lib/types";
 import { STORE_LABELS } from "@/lib/types";
 
@@ -33,6 +40,7 @@ export default function GroceryPage() {
   const [weekStart, setWeekStart] = useState(defaultWeek);
   const [newItem, setNewItem] = useState("");
   const [newStore, setNewStore] = useState("whole_foods");
+  const [pendingSync, setPendingSync] = useState(0);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -45,12 +53,47 @@ export default function GroceryPage() {
     qc.invalidateQueries({ queryKey: ["grocery"] });
     qc.invalidateQueries({ queryKey: ["pantry"] });
   };
+
+  // Replay any check-offs made offline (bad store reception) once we're back.
+  useEffect(() => {
+    setPendingSync(loadQueue().length);
+    const flush = () =>
+      flushQueue().then((remaining) => {
+        setPendingSync(remaining);
+        if (remaining === 0) invalidate();
+      });
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toggle = useMutation({
-    mutationFn: (item: GroceryItem) =>
-      api(`/api/grocery/${item.id}`, {
-        method: "PATCH",
-        json: { checked: !item.checked },
-      }),
+    mutationFn: async (item: GroceryItem) => {
+      try {
+        await api(`/api/grocery/${item.id}`, {
+          method: "PATCH",
+          json: { checked: !item.checked },
+        });
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        // Offline in the store aisle: keep the optimistic tick, queue the sync.
+        setPendingSync(enqueueToggle(item.id, !item.checked));
+      }
+    },
+    // Optimistic: flip immediately so check-offs feel instant (and work offline)
+    onMutate: async (item) => {
+      await qc.cancelQueries({ queryKey: ["grocery", weekStart] });
+      qc.setQueryData<{ items: GroceryItem[] }>(
+        ["grocery", weekStart],
+        (old) =>
+          old && {
+            items: old.items.map((i) =>
+              i.id === item.id ? { ...i, checked: !i.checked } : i,
+            ),
+          },
+      );
+    },
     onSuccess: invalidate,
   });
   const addStaples = useMutation({
@@ -109,13 +152,20 @@ export default function GroceryPage() {
         </div>
       </header>
 
-      <button
-        onClick={() => addStaples.mutate()}
-        disabled={addStaples.isPending}
-        className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-sm"
-      >
-        <Plus size={15} /> Add low/out staples
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => addStaples.mutate()}
+          disabled={addStaples.isPending}
+          className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-sm"
+        >
+          <Plus size={15} /> Add low/out staples
+        </button>
+        {pendingSync > 0 && (
+          <span className="chip bg-accent-soft font-semibold text-accent-deep">
+            <CloudOff size={11} /> {pendingSync} to sync
+          </span>
+        )}
+      </div>
 
       <form
         onSubmit={(e) => {

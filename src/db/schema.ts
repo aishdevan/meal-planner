@@ -232,6 +232,18 @@ export const suggestions = pgTable("suggestions", {
   ...timestamps,
 });
 
+/** Web-push subscriptions (one per installed phone that opted in). */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    endpoint: text("endpoint").notNull(),
+    keys: jsonb("keys").$type<{ p256dh: string; auth: string }>().notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint)],
+);
+
 /** Daily Claude-call cap so a bug can't loop us into a bill. */
 export const apiUsage = pgTable(
   "api_usage",
