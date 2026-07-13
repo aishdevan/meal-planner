@@ -44,6 +44,7 @@ export const seedPantry: {
   { name: "All-purpose flour", pantry_key: "all_purpose_flour", store: "whole_foods", category: "pantry", staple: true },
   { name: "Besan (chickpea flour)", pantry_key: "besan", store: "indian_store", category: "pantry", staple: true },
   { name: "Rolled oats", pantry_key: "rolled_oats", store: "whole_foods", category: "pantry", staple: true },
+  { name: "Maple syrup", pantry_key: "maple_syrup", store: "whole_foods", category: "pantry", staple: true },
   { name: "Poha (flattened rice, thick)", pantry_key: "poha", store: "indian_store", category: "pantry", staple: true },
   { name: "Quinoa", pantry_key: "quinoa", store: "whole_foods", category: "pantry", staple: true },
 

@@ -10,6 +10,7 @@ import {
   Clock,
   Dice5,
   Dumbbell,
+  ExternalLink,
   Flame,
   PencilLine,
   Search,
@@ -180,14 +181,27 @@ export default function RecipesPage() {
                 </div>
               )}
             </Link>
-            <button
-              onClick={() => favorite.mutate(r)}
-              className={`px-4 py-3 ${
-                r.isFavorite ? "text-accent" : "text-faint/50"
-              }`}
-            >
-              <Star size={20} fill={r.isFavorite ? "currentColor" : "none"} />
-            </button>
+            <div className="flex flex-col items-center">
+              <button
+                onClick={() => favorite.mutate(r)}
+                className={`px-4 pb-1 pt-3 ${
+                  r.isFavorite ? "text-accent" : "text-faint/50"
+                }`}
+              >
+                <Star size={20} fill={r.isFavorite ? "currentColor" : "none"} />
+              </button>
+              {r.sourceUrl && (
+                <a
+                  href={r.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 pb-3 pt-1 text-terra"
+                  aria-label="Open original recipe"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>
