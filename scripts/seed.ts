@@ -60,6 +60,8 @@ async function main() {
         appliances: r.appliances,
         proteinGBase: r.protein_g_base,
         proteinGWithAddon: r.protein_g_with_addon,
+        nutrition: r.nutrition,
+        sourceName: r.source_attribution,
         ingredients: r.ingredients,
         steps: r.steps,
         nonvegAddon: r.nonveg_addon,
