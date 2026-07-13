@@ -4,7 +4,7 @@ import { db, tables } from "@/db";
 import { claudeAvailable, structuredCall } from "@/lib/claude";
 import { IngestResultSchema, type IngestResult } from "@/lib/schemas";
 
-const INGEST_SYSTEM = `You turn a saved social-media recipe post into a structured recipe for the Devan household meal planner (Aish is vegetarian; Rahul and Elai eat meat; a 4-year-old eats with them; they favor high protein).
+const INGEST_SYSTEM = `You turn a saved social-media recipe post into a structured recipe for the Devan household meal planner (Aish is vegetarian but eats eggs — egg dishes count as vegetarian base; Rahul and Elai eat meat; a 4-year-old eats with them; they favor high protein).
 
 Conventions:
 - If the dish is inherently non-vegetarian, restructure it as a vegetarian base + nonveg_addon where sensible (the addon carries the meat; its ingredients get for_addon=true). If that's not sensible, keep it as-is with is_vegetarian_base=false.

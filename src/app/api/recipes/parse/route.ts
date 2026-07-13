@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { claudeAvailable, structuredCall } from "@/lib/claude";
 import { IngestResultSchema, type IngestResult } from "@/lib/schemas";
 
-const PARSE_SYSTEM = `You turn a family member's own recipe — typed casually, like they'd tell a friend — into a structured recipe for the Devan household meal planner (Aish is vegetarian; Rahul and Elai eat meat; a 4-year-old eats with them; they favor high protein).
+const PARSE_SYSTEM = `You turn a family member's own recipe — typed casually, like they'd tell a friend — into a structured recipe for the Devan household meal planner (Aish is vegetarian but eats eggs — egg dishes count as vegetarian base; Rahul and Elai eat meat; a 4-year-old eats with them; they favor high protein).
 
 Conventions:
 - Stay faithful to what they wrote: this is THEIR recipe. Fill only standard technique gaps (temps, times, order) and note anything you guessed in confidence_note. Never substitute ingredients or "improve" the dish.

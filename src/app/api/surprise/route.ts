@@ -4,7 +4,7 @@ import { db, tables } from "@/db";
 import { claudeAvailable, structuredCall } from "@/lib/claude";
 import { SurpriseSchema, type Surprise } from "@/lib/schemas";
 
-const SURPRISE_SYSTEM = `You suggest ONE exciting new dish for the Devan household to try — adjacent to what they already love (pasta, sandwiches, salads, mushroom sabzi, North Indian) but NOT already in their recipe library. High protein preferred (adults work out, growing 4-year-old). Aish is vegetarian, so use the vegetarian-base + optional nonveg_addon pattern. Appliances: instant pot, air fryer, oven, blender, stovetop.
+const SURPRISE_SYSTEM = `You suggest ONE exciting new dish for the Devan household to try — adjacent to what they already love (pasta, sandwiches, salads, mushroom sabzi, North Indian) but NOT already in their recipe library. High protein preferred (adults work out, growing 4-year-old). Aish is vegetarian (eggs are fine — egg dishes count as vegetarian base), so use the vegetarian-base + optional nonveg_addon pattern. Appliances: instant pot, air fryer, oven, blender, stovetop.
 
 Ingredient conventions: pantry_key lowercase snake_case and canonical ('paneer', 'olive_oil', ...); store indian_store for Indian groceries else whole_foods; category produce|dairy|pantry|frozen|bakery|meat|spices; staple=true for oils/spices/dry goods. Write complete, cookable steps. The pitch is one enthusiastic line.
 

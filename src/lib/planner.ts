@@ -165,7 +165,7 @@ const PLANNER_SYSTEM = `You are the meal planner for the Devan household. You pr
 HARD CONSTRAINTS — violating any of these makes the plan unusable:
 1. school_lunch slots: the recipe MUST have is_nut_free=true AND no_reheat_ok=true (packed lunch for a 4-year-old, no microwave at school).
 2. Weekday (Mon-Fri) dinner recipes MUST have total_time_minutes <= ${WEEKDAY_DINNER_MAX_MINUTES}.
-3. Dinner recipes MUST have is_vegetarian_base=true (Aish is vegetarian) — UNLESS Aish is listed as away that date.
+3. Dinner recipes MUST have is_vegetarian_base=true (Aish is vegetarian; eggs count as vegetarian for this family) — UNLESS Aish is listed as away that date.
 4. If Rahul is away on a date, set include_addon=false for that dinner.
 5. Never plan any slot on a whole-family-away date.
 6. include_addon=true only if the recipe actually has a nonveg_addon.

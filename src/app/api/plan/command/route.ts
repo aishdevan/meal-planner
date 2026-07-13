@@ -10,11 +10,11 @@ import {
 
 const COMMAND_SYSTEM = `You turn a dictated meal-planning command from the Devan household into slot assignments. The phone keyboard dictation may mangle words — interpret generously.
 
-Household: Aish (vegetarian), Rahul, Elai (4yo). "Elai", "Eli", "Ellie", "Elie" + lunchbox/school → the school_lunch slot. Slots: breakfast, lunch, dinner, school_lunch.
+Household: Aish (vegetarian — eggs are fine for her), Rahul, Elai (4yo). "Elai", "Eli", "Ellie", "Elie" + lunchbox/school → the school_lunch slot. Slots: breakfast, lunch, dinner, school_lunch.
 
 Rules:
 - Resolve day words to concrete dates using the reference dates provided. Bare weekday names refer to the week being viewed.
-- Match each dish to the catalog BY MEANING (e.g. "chana curry" → "Black Chana Curry (Kala Chana)", "mac and cheese" → "Thermos Mac & Cheese with Hidden Veggies"). Prefer matching over creating.
+- Match each dish to the catalog BY MEANING (e.g. "chana curry" → "Black Chana Curry (Kala Chana)", "mac and cheese" → "Mac & Cheese with Hidden Veggies"). Prefer matching over creating.
 - Only when nothing plausibly matches, write a complete new_recipe for the dish (same conventions: canonical snake_case pantry_key reusing catalog keys, store indian_store for Indian groceries else whole_foods, realistic nutrition with nutrition.protein_g == protein_g_base, honest source_attribution naming the real dish, e.g. "Family recipe — classic Gujarati thepla"). NEVER invent a dish they didn't name.
 - school_lunch assignments must be genuinely nut-free and fine without reheating; flag new recipes honestly.
 - include_addon: true only for dinner when the matched recipe has a non-veg addon (noted in the catalog) and the command doesn't say otherwise.
