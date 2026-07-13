@@ -59,7 +59,27 @@ async function main() {
     console.log(`✓ added "${r.title}"`);
     added++;
   }
-  console.log(`Done: ${thermos.length} renamed, ${added} added.`);
+  // 3. Attach verified reference links (title-matched; never overwrites an
+  //    existing sourceUrl such as an Instagram import's original post)
+  const links = (await import("../src/data/seed-source-links.json")).default as {
+    title: string;
+    url: string;
+  }[];
+  let linked = 0;
+  const all = await db.select().from(tables.recipes);
+  const byTitle = new Map(all.map((r) => [r.title, r]));
+  for (const l of links) {
+    const row = byTitle.get(l.title);
+    if (!row || row.sourceUrl) continue;
+    await db
+      .update(tables.recipes)
+      .set({ sourceUrl: l.url, updatedAt: new Date() })
+      .where(eq(tables.recipes.id, row.id));
+    linked++;
+  }
+  console.log(
+    `Done: ${thermos.length} renamed, ${added} added, ${linked} source links attached.`,
+  );
   process.exit(0);
 }
 

@@ -52,7 +52,7 @@ export default function RecipeDetailPage({
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-xs text-terra underline underline-offset-2"
             >
-              View original post <ExternalLink size={11} />
+              View source recipe <ExternalLink size={11} />
             </a>
           )}
         </div>

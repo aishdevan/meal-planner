@@ -116,6 +116,26 @@ async function main() {
     console.log(`- pantry already present (${existingPantry.length}), skipping`);
   }
 
+  // --- Reference links (fresh installs get them too) ---------------------
+  const { eq: eqOp } = await import("drizzle-orm");
+  const links = (await import("../src/data/seed-source-links.json")).default as {
+    title: string;
+    url: string;
+  }[];
+  const all = await db.select().from(tables.recipes);
+  const byTitle = new Map(all.map((r) => [r.title, r]));
+  let linked = 0;
+  for (const l of links) {
+    const row = byTitle.get(l.title);
+    if (!row || row.sourceUrl) continue;
+    await db
+      .update(tables.recipes)
+      .set({ sourceUrl: l.url, updatedAt: new Date() })
+      .where(eqOp(tables.recipes.id, row.id));
+    linked++;
+  }
+  if (linked) console.log(`✓ attached ${linked} source links`);
+
   console.log("Done.");
   process.exit(0);
 }
