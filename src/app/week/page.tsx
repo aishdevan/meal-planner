@@ -13,8 +13,10 @@ import {
   Dumbbell,
   Flame,
   Luggage,
+  Mic,
   Palmtree,
   RotateCcw,
+  Send,
   Sparkles,
   ThumbsDown,
 } from "lucide-react";
@@ -28,7 +30,16 @@ import type {
   Recipe,
 } from "@/lib/types";
 import { SLOT_LABELS, SLOT_ORDER } from "@/lib/types";
+import type { CommandAssignment, CommandProposal } from "@/lib/schemas";
 import { RecipeBadges } from "@/components/RecipeView";
+
+type EnrichedAssignment = CommandAssignment & {
+  matched_title: string | null;
+  replaces: { title: string; cooked: boolean } | null;
+};
+type EnrichedProposal = Omit<CommandProposal, "assignments"> & {
+  assignments: EnrichedAssignment[];
+};
 
 export default function WeekPage() {
   const today = todayString();
@@ -110,6 +121,8 @@ export default function WeekPage() {
           turn them into recipes →
         </Link>
       )}
+
+      <CommandBar weekStart={weekStart} />
 
       <button
         onClick={() => generate.mutate(undefined)}
@@ -224,6 +237,176 @@ export default function WeekPage() {
           onClose={() => setShowAway(false)}
           onReadjust={(dates) => generate.mutate(dates)}
         />
+      )}
+    </div>
+  );
+}
+
+function CommandBar({ weekStart }: { weekStart: string }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState("");
+  const [proposal, setProposal] = useState<EnrichedProposal | null>(null);
+  const [result, setResult] = useState<{ applied: string[]; skipped: string[] } | null>(
+    null,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const parse = useMutation({
+    mutationFn: () =>
+      api<{ proposal: EnrichedProposal }>("/api/plan/command", {
+        method: "POST",
+        json: { text, weekStart },
+      }),
+    onSuccess: ({ proposal }) => {
+      setError(null);
+      setProposal(proposal);
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const apply = useMutation({
+    mutationFn: (assignments: EnrichedAssignment[]) =>
+      api<{ applied: string[]; skipped: string[] }>("/api/plan/command/apply", {
+        method: "POST",
+        json: { assignments },
+      }),
+    onSuccess: (res) => {
+      setProposal(null);
+      setText("");
+      setResult(res);
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  return (
+    <div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) parse.mutate();
+        }}
+        className="relative"
+      >
+        <Mic
+          size={15}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-accent"
+        />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Tell me the plan… “Tuesday dinner rajma”"
+          className="input w-full pl-9 pr-11"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim() || parse.isPending}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-accent p-1.5 text-on-accent disabled:opacity-40"
+        >
+          <Send size={14} />
+        </button>
+      </form>
+      <p className="mt-1 pl-1 text-[10px] text-faint">
+        Tap the box, then use the 🎤 on your keyboard to dictate. Works for any
+        day, meal, or Elai&apos;s lunchbox.
+      </p>
+      {parse.isPending && (
+        <p className="mt-1 pl-1 text-xs text-soft">Working out what you meant…</p>
+      )}
+      {error && (
+        <p className="mt-1 rounded-2xl bg-bad-soft px-3.5 py-2 text-xs text-bad">
+          {error}
+        </p>
+      )}
+      {result && (
+        <div className="mt-2 rounded-2xl bg-good-soft px-3.5 py-2.5 text-xs text-good">
+          {result.applied.map((a) => (
+            <div key={a}>✓ {a}</div>
+          ))}
+          {result.skipped.map((s) => (
+            <div key={s} className="text-bad">
+              ✕ {s}
+            </div>
+          ))}
+          <button onClick={() => setResult(null)} className="mt-1 underline">
+            dismiss
+          </button>
+        </div>
+      )}
+
+      {proposal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setProposal(null)}
+        >
+          <div
+            className="sheet max-h-[80vh] w-full max-w-lg overflow-y-auto p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold tracking-tight">
+              Here&apos;s what I heard
+            </h3>
+            {proposal.note && (
+              <p className="mt-1.5 rounded-2xl bg-accent-soft px-3.5 py-2.5 text-xs text-accent-deep">
+                {proposal.note}
+              </p>
+            )}
+            {proposal.assignments.length === 0 ? (
+              <p className="mt-3 text-sm text-soft">
+                I couldn&apos;t turn that into any meal slots — try naming a day,
+                a meal, and a dish.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {proposal.assignments.map((a, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5"
+                  >
+                    <div className="text-sm font-medium">{a.interpreted_as}</div>
+                    <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10px]">
+                      {a.new_recipe && (
+                        <span className="chip bg-accent-soft font-semibold text-accent-deep">
+                          <Sparkles size={10} /> new recipe:{" "}
+                          {a.new_recipe.title}
+                        </span>
+                      )}
+                      {a.replaces && !a.replaces.cooked && (
+                        <span className="chip bg-terra-soft text-terra">
+                          replaces {a.replaces.title} (kept as alternative)
+                        </span>
+                      )}
+                      {a.replaces?.cooked && (
+                        <span className="chip bg-bad-soft text-bad">
+                          already cooked — will be skipped
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setProposal(null)}
+                className="btn-secondary flex-1 py-3"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => apply.mutate(proposal.assignments)}
+                disabled={proposal.assignments.length === 0 || apply.isPending}
+                className="btn-primary flex-1 py-3 disabled:opacity-50"
+              >
+                {apply.isPending
+                  ? "Applying…"
+                  : `Apply ${proposal.assignments.length} change${proposal.assignments.length === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

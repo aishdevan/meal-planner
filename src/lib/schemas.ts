@@ -146,6 +146,32 @@ export const SurpriseSchema = z.object({
 });
 export type Surprise = z.infer<typeof SurpriseSchema>;
 
+/** Voice/dictation command parsing: "Tuesday dinner rajma, Wednesday lunchbox pasta". */
+export const CommandAssignmentSchema = z.object({
+  date: z.string().describe("Resolved date YYYY-MM-DD"),
+  slot: SlotSchema,
+  recipe_id: z
+    .string()
+    .nullable()
+    .describe("Matched catalog recipe id — match by meaning, not exact words"),
+  new_recipe: NewRecipeSchema.nullable().describe(
+    "Only when nothing in the catalog plausibly matches: a complete recipe for the dish the family named",
+  ),
+  interpreted_as: z
+    .string()
+    .describe("Short human echo, e.g. 'Tuesday dinner → Rajma Chawal'"),
+  include_addon: z.boolean(),
+});
+
+export const CommandProposalSchema = z.object({
+  assignments: z.array(CommandAssignmentSchema),
+  note: z
+    .string()
+    .describe("Anything ambiguous or skipped, in one short sentence; empty string if none"),
+});
+export type CommandProposal = z.infer<typeof CommandProposalSchema>;
+export type CommandAssignment = z.infer<typeof CommandAssignmentSchema>;
+
 /** Bookmark ingestion returns a full recipe draft parsed from the IG caption/OG text. */
 export const IngestResultSchema = z.object({
   recipe: RecipeContentSchema,
