@@ -229,11 +229,12 @@ function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) 
   return (
     <section className="card p-4">
       <h2 className="flex items-center gap-2 font-bold tracking-tight">
-        <Bell size={17} className="text-accent" /> Sunday reminder
+        <Bell size={17} className="text-accent" /> Notifications
       </h2>
       <p className="mt-1 text-sm text-soft">
-        A gentle Sunday-morning nudge on this phone: &ldquo;time to plan the
-        week&rdquo;.
+        Two gentle pushes on this phone: every morning &ldquo;here&apos;s
+        today&apos;s menu&rdquo;, and a Sunday &ldquo;time to plan the
+        week&rdquo; nudge.
       </p>
       {status === "needs-install" && (
         <p className="mt-2 rounded-2xl bg-accent-soft px-3.5 py-2.5 text-xs text-accent-deep">
@@ -257,8 +258,8 @@ function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) 
           {busy
             ? "Working…"
             : status === "on"
-              ? "Reminder is on — turn off for this phone"
-              : "Turn on the Sunday reminder"}
+              ? "Notifications are on — turn off for this phone"
+              : "Turn on notifications"}
         </button>
       )}
       {error && <p className="mt-2 text-xs text-bad">{error}</p>}

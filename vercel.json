@@ -3,6 +3,10 @@
     {
       "path": "/api/push/nudge",
       "schedule": "0 16 * * 0"
+    },
+    {
+      "path": "/api/push/daily",
+      "schedule": "0 14 * * *"
     }
   ]
 }
