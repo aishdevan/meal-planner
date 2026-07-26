@@ -19,10 +19,10 @@ import {
   enqueueToggle,
   flushQueue,
   isNetworkError,
-  loadQueue,
 } from "@/lib/offline-queue";
 import type { GroceryItem } from "@/lib/types";
 import { STORE_LABELS } from "@/lib/types";
+import { VoiceBar } from "@/components/VoiceBar";
 
 const STORE_ORDER = ["whole_foods", "farmers_market", "indian_store"];
 const STORE_ICONS: Record<string, typeof ShoppingCart> = {
@@ -55,8 +55,8 @@ export default function GroceryPage() {
   };
 
   // Replay any check-offs made offline (bad store reception) once we're back.
+  // flushQueue reports how many are still stuck, which drives the sync chip.
   useEffect(() => {
-    setPendingSync(loadQueue().length);
     const flush = () =>
       flushQueue().then((remaining) => {
         setPendingSync(remaining);
@@ -151,6 +151,16 @@ export default function GroceryPage() {
           </button>
         </div>
       </header>
+
+      <VoiceBar
+        placeholder="Tell the list… “got the milk, add bananas”"
+        hint="Tap the box, then use the 🎤 on your keyboard — “got the…” checks things off, “add…” puts them on the list."
+        parsePath="/api/grocery/command"
+        applyPath="/api/grocery/command/apply"
+        extra={{ weekStart }}
+        emptyMessage="I couldn't turn that into any list changes — try “got the milk and eggs” or “add bananas”."
+        onApplied={invalidate}
+      />
 
       <div className="flex items-center gap-2">
         <button

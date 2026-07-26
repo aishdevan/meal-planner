@@ -6,6 +6,7 @@ import { Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PantryItem } from "@/lib/types";
 import { STORE_LABELS } from "@/lib/types";
+import { VoiceBar } from "@/components/VoiceBar";
 
 const NEXT_STATE: Record<string, "have" | "low" | "out"> = {
   have: "low",
@@ -65,6 +66,15 @@ export default function PantryPage() {
           {lowOut > 0 && ` ${lowOut} running low or out.`}
         </p>
       </header>
+
+      <VoiceBar
+        placeholder="Tell the pantry… “out of milk, low on rice”"
+        hint="Tap the box, then use the 🎤 on your keyboard — say what you bought, what's running low, what ran out."
+        parsePath="/api/pantry/command"
+        applyPath="/api/pantry/command/apply"
+        emptyMessage="I couldn't turn that into any pantry changes — try naming items with “bought”, “low on”, or “out of”."
+        onApplied={() => qc.invalidateQueries({ queryKey: ["pantry"] })}
+      />
 
       <div className="relative">
         <Search

@@ -172,6 +172,73 @@ export const CommandProposalSchema = z.object({
 export type CommandProposal = z.infer<typeof CommandProposalSchema>;
 export type CommandAssignment = z.infer<typeof CommandAssignmentSchema>;
 
+/** Voice/dictation pantry updates: "out of milk, low on rice, bought paneer and spinach". */
+export const PantryStateSchema = z.enum(["have", "low", "out"]);
+
+export const PantryUpdateSchema = z.object({
+  pantry_item_id: z
+    .string()
+    .nullable()
+    .describe("Matched existing pantry item id — match by meaning, not exact words"),
+  new_item: z
+    .object({
+      name: z.string(),
+      pantry_key: z
+        .string()
+        .describe("Normalized lowercase snake_case, reusing catalog conventions"),
+      store: StoreSchema,
+      category: z
+        .string()
+        .describe("produce | dairy | pantry | frozen | bakery | meat | spices"),
+    })
+    .nullable()
+    .describe("Only when nothing in the pantry plausibly matches the named item"),
+  state: PantryStateSchema,
+  interpreted_as: z.string().describe("Short human echo, e.g. 'Milk → out'"),
+});
+
+export const PantryCommandSchema = z.object({
+  updates: z.array(PantryUpdateSchema),
+  note: z
+    .string()
+    .describe("Anything ambiguous or skipped, in one short sentence; empty string if none"),
+});
+export type PantryCommand = z.infer<typeof PantryCommandSchema>;
+export type PantryUpdate = z.infer<typeof PantryUpdateSchema>;
+
+/** Voice/dictation grocery-list updates: "got the milk and eggs, add bananas". */
+export const GroceryUpdateSchema = z.object({
+  action: z
+    .enum(["check", "uncheck", "add", "remove"])
+    .describe(
+      "check = got it / in the cart; uncheck = put back / didn't get; add = put on the list; remove = take off the list",
+    ),
+  grocery_item_id: z
+    .string()
+    .nullable()
+    .describe("Matched list item id for check/uncheck/remove — match by meaning"),
+  new_item: z
+    .object({
+      name: z.string(),
+      store: StoreSchema,
+      category: z
+        .string()
+        .describe("produce | dairy | pantry | frozen | bakery | meat | spices"),
+    })
+    .nullable()
+    .describe("Only for action 'add'"),
+  interpreted_as: z.string().describe("Short human echo, e.g. 'Milk ✓ in the cart'"),
+});
+
+export const GroceryCommandSchema = z.object({
+  updates: z.array(GroceryUpdateSchema),
+  note: z
+    .string()
+    .describe("Anything ambiguous or skipped, in one short sentence; empty string if none"),
+});
+export type GroceryCommand = z.infer<typeof GroceryCommandSchema>;
+export type GroceryUpdate = z.infer<typeof GroceryUpdateSchema>;
+
 /** Bookmark ingestion returns a full recipe draft parsed from the IG caption/OG text. */
 export const IngestResultSchema = z.object({
   recipe: RecipeContentSchema,
