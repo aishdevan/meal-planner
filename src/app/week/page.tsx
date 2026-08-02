@@ -15,13 +15,15 @@ import {
   Luggage,
   Mic,
   Palmtree,
+  Plus,
   RotateCcw,
   Send,
   Sparkles,
+  Star,
   ThumbsDown,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { addDays, mondayOf, todayString } from "@/lib/dates";
+import { addDays, mondayOf, todayString, weekDates } from "@/lib/dates";
 import type {
   Bookmark,
   Member,
@@ -50,12 +52,18 @@ export default function WeekPage() {
     recipe: Recipe;
   } | null>(null);
   const [showAway, setShowAway] = useState(false);
+  const [addingFav, setAddingFav] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["plan", weekStart],
     queryFn: () => api<PlanResponse>(`/api/plan?weekStart=${weekStart}`),
   });
+  const { data: recipesData } = useQuery({
+    queryKey: ["recipes"],
+    queryFn: () => api<{ recipes: Recipe[] }>("/api/recipes"),
+  });
+  const favorites = (recipesData?.recipes ?? []).filter((r) => r.isFavorite);
   const { data: bookmarksData } = useQuery({
     queryKey: ["bookmarks"],
     queryFn: () => api<{ bookmarks: Bookmark[] }>("/api/bookmarks"),
@@ -123,6 +131,8 @@ export default function WeekPage() {
       )}
 
       <CommandBar weekStart={weekStart} />
+
+      <FavoritesQuickAdd favorites={favorites} onPick={setAddingFav} />
 
       <button
         onClick={() => generate.mutate(undefined)}
@@ -238,6 +248,212 @@ export default function WeekPage() {
           onReadjust={(dates) => generate.mutate(dates)}
         />
       )}
+      {addingFav && (
+        <FavoriteAddSheet
+          recipe={addingFav}
+          weekStart={weekStart}
+          familyAwayDates={data?.familyAwayDates ?? []}
+          rahulAwayDates={data?.rahulAwayDates ?? []}
+          onClose={() => setAddingFav(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FavoritesQuickAdd({
+  favorites,
+  onPick,
+}: {
+  favorites: Recipe[];
+  onPick: (recipe: Recipe) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-1.5 pl-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-soft">
+        <Star size={12} className="text-accent" fill="currentColor" /> Your go-to
+        meals
+      </div>
+      {favorites.length === 0 ? (
+        <Link
+          href="/recipes"
+          className="card block border-dashed px-4 py-3 text-sm text-soft"
+        >
+          Tap the ★ on dishes in{" "}
+          <span className="font-semibold text-accent-deep">Recipes</span> to build
+          your go-to list — then drop them straight onto any day here.
+        </Link>
+      ) : (
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {favorites.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onPick(r)}
+              className="card flex shrink-0 items-center gap-2 px-3 py-2.5 text-left active:scale-[.98]"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-deep">
+                <Plus size={14} />
+              </span>
+              <span className="min-w-0">
+                <span className="block max-w-[9rem] truncate text-sm font-medium leading-tight">
+                  {r.title}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-faint">
+                  <Clock size={9} /> {r.totalTimeMinutes}min
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FavoriteAddSheet({
+  recipe,
+  weekStart,
+  familyAwayDates,
+  rahulAwayDates,
+  onClose,
+}: {
+  recipe: Recipe;
+  weekStart: string;
+  familyAwayDates: string[];
+  rahulAwayDates: string[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const dates = weekDates(weekStart);
+  const validSlots = SLOT_ORDER.filter(
+    (s) =>
+      recipe.mealTypes.includes(s) &&
+      (s !== "school_lunch" || (recipe.isNutFree && recipe.noReheatOk)),
+  );
+
+  const today = todayString();
+  const firstOpenDay =
+    dates.find((d) => d >= today && !familyAwayDates.includes(d)) ??
+    dates.find((d) => !familyAwayDates.includes(d)) ??
+    dates[0];
+  const [date, setDate] = useState(firstOpenDay);
+  const [slot, setSlot] = useState(validSlots[0] ?? "dinner");
+  const [error, setError] = useState<string | null>(null);
+
+  const add = useMutation({
+    mutationFn: () => {
+      const includeAddon =
+        slot === "dinner" &&
+        Boolean(recipe.nonvegAddon) &&
+        !rahulAwayDates.includes(date);
+      const assignment: CommandAssignment = {
+        date,
+        slot: slot as CommandAssignment["slot"],
+        recipe_id: recipe.id,
+        new_recipe: null,
+        interpreted_as: `${SLOT_LABELS[slot]} → ${recipe.title}`,
+        include_addon: includeAddon,
+      };
+      return api<{ applied: string[]; skipped: string[] }>(
+        "/api/plan/command/apply",
+        { method: "POST", json: { assignments: [assignment] } },
+      );
+    },
+    onSuccess: (res) => {
+      if (res.skipped.length > 0) {
+        setError(res.skipped[0]);
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const dayLabel = (d: string) =>
+    new Date(d + "T12:00:00").toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+    });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="sheet w-full max-w-lg p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-accent-deep">
+          <Star size={11} fill="currentColor" /> Add a favorite
+        </div>
+        <h3 className="mt-1 text-xl font-bold tracking-tight">{recipe.title}</h3>
+
+        <div className="mt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-soft">
+            Which day?
+          </div>
+          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+            {dates.map((d) => {
+              const away = familyAwayDates.includes(d);
+              return (
+                <button
+                  key={d}
+                  disabled={away}
+                  onClick={() => setDate(d)}
+                  className={`rounded-2xl border py-2 text-xs font-medium transition disabled:opacity-30 ${
+                    date === d
+                      ? "border-accent bg-accent text-on-accent"
+                      : "border-line bg-surface/60 text-soft"
+                  }`}
+                >
+                  {away ? "Away" : dayLabel(d)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-soft">
+            Which meal?
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {validSlots.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSlot(s)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                  slot === s
+                    ? "border-accent bg-accent text-on-accent"
+                    : "border-line bg-surface/60 text-soft"
+                }`}
+              >
+                {SLOT_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <p className="mt-3 text-sm text-bad">{error}</p>}
+
+        <div className="mt-5 flex gap-3">
+          <button onClick={onClose} className="btn-secondary flex-1 py-3">
+            Cancel
+          </button>
+          <button
+            onClick={() => add.mutate()}
+            disabled={add.isPending || !date || !slot}
+            className="btn-primary flex-1 py-3 disabled:opacity-50"
+          >
+            {add.isPending
+              ? "Adding…"
+              : `Add to ${dayLabel(date)} ${SLOT_LABELS[slot].toLowerCase()}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -309,8 +525,9 @@ function CommandBar({ weekStart }: { weekStart: string }) {
         </button>
       </form>
       <p className="mt-1 pl-1 text-[10px] text-faint">
-        Tap the box, then use the 🎤 on your keyboard to dictate. Works for any
-        day, meal, or Elai&apos;s lunchbox.
+        Tap the box, then use the 🎤 on your keyboard to dictate — e.g. “rajma
+        Tuesday dinner”. Works for any day, meal, Elai&apos;s lunchbox, or your ★
+        favorites.
       </p>
       {parse.isPending && (
         <p className="mt-1 pl-1 text-xs text-soft">Working out what you meant…</p>
