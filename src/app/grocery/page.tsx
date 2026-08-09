@@ -383,8 +383,24 @@ function MyRegulars({
     onSuccess: invalidate,
   });
   const createRegular = useMutation({
-    mutationFn: (v: { name: string; store: string; category?: string }) =>
-      api("/api/grocery/regulars", { method: "POST", json: v }),
+    // Accepts one name or several separated by commas / new lines, so you can
+    // add a whole batch at once. Each still becomes its own chip.
+    mutationFn: async (v: { name: string; store: string; category?: string }) => {
+      const names = [
+        ...new Set(
+          v.name
+            .split(/[,\n]/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ];
+      for (const name of names) {
+        await api("/api/grocery/regulars", {
+          method: "POST",
+          json: { name, store: v.store, category: v.category },
+        });
+      }
+    },
     onSuccess: () => {
       setName("");
       setAdding(false);
@@ -483,7 +499,7 @@ function MyRegulars({
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
-            placeholder="e.g. Spinach"
+            placeholder="e.g. Spinach, Tomatoes, Milk"
             className="input min-w-0 flex-1 py-2 text-sm"
           />
           <select
