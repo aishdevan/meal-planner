@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ShoppingCart } from "lucide-react";
 import { api } from "@/lib/api";
-import type { PantryItem } from "@/lib/types";
+import { addDays, mondayOf, todayString } from "@/lib/dates";
+import type { GroceryItem, PantryItem } from "@/lib/types";
 import { STORE_LABELS } from "@/lib/types";
 import { VoiceBar } from "@/components/VoiceBar";
 
@@ -24,10 +25,30 @@ export default function PantryPage() {
   const [newItem, setNewItem] = useState("");
   const qc = useQueryClient();
 
+  // Weekend shopping is for NEXT week's plan; match the Grocery tab's default.
+  const dow = new Date().getDay();
+  const shoppingWeek =
+    dow === 6 || dow === 0
+      ? mondayOf(addDays(todayString(), 7))
+      : mondayOf(todayString());
+
   const { data, isLoading } = useQuery({
     queryKey: ["pantry"],
     queryFn: () => api<{ items: PantryItem[] }>("/api/pantry"),
   });
+  const { data: groceryData } = useQuery({
+    queryKey: ["grocery", shoppingWeek],
+    queryFn: () =>
+      api<{ items: GroceryItem[] }>(`/api/grocery?weekStart=${shoppingWeek}`),
+  });
+  const onListByKey = new Map(
+    (groceryData?.items ?? []).map((i) => [i.pantryKey, i]),
+  );
+
+  const invalidateBoth = () => {
+    qc.invalidateQueries({ queryKey: ["pantry"] });
+    qc.invalidateQueries({ queryKey: ["grocery"] });
+  };
 
   const cycle = useMutation({
     mutationFn: (item: PantryItem) =>
@@ -36,6 +57,19 @@ export default function PantryPage() {
         json: { state: NEXT_STATE[item.state] },
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pantry"] }),
+  });
+  const buy = useMutation({
+    mutationFn: (item: PantryItem) =>
+      api(`/api/pantry/${item.id}/buy`, {
+        method: "POST",
+        json: { weekStart: shoppingWeek },
+      }),
+    onSuccess: invalidateBoth,
+  });
+  const unbuy = useMutation({
+    mutationFn: (groceryId: string) =>
+      api(`/api/grocery/${groceryId}`, { method: "DELETE" }),
+    onSuccess: invalidateBoth,
   });
   const add = useMutation({
     mutationFn: () =>
@@ -62,7 +96,8 @@ export default function PantryPage() {
       <header className="pt-3">
         <h1 className="text-[28px] font-bold tracking-tight">Pantry</h1>
         <p className="text-sm text-soft">
-          Tap the chip to cycle have → low → out.
+          Tap the chip to cycle have → low → out; tap the cart to add it to your
+          shopping list.
           {lowOut > 0 && ` ${lowOut} running low or out.`}
         </p>
       </header>
@@ -121,27 +156,47 @@ export default function PantryPage() {
               {group}
             </div>
             <div className="card overflow-hidden">
-              {groupItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between border-b border-line px-3.5 py-2.5 last:border-0"
-                >
-                  <span className="text-sm">
-                    {item.name}
-                    {item.staple && (
-                      <span className="ml-1.5 text-[10px] text-faint">
-                        staple
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    onClick={() => cycle.mutate(item)}
-                    className={`chip font-semibold ${STATE_STYLE[item.state]}`}
+              {groupItems.map((item) => {
+                const onList = onListByKey.get(item.pantryKey);
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between border-b border-line px-3.5 py-2.5 last:border-0"
                   >
-                    {item.state}
-                  </button>
-                </div>
-              ))}
+                    <span className="text-sm">
+                      {item.name}
+                      {item.staple && (
+                        <span className="ml-1.5 text-[10px] text-faint">
+                          staple
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          onList ? unbuy.mutate(onList.id) : buy.mutate(item)
+                        }
+                        aria-label={
+                          onList ? "On the shopping list" : "Add to shopping list"
+                        }
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${
+                          onList
+                            ? "border-accent bg-accent text-on-accent"
+                            : "border-line text-faint active:bg-accent-soft"
+                        }`}
+                      >
+                        <ShoppingCart size={13} />
+                      </button>
+                      <button
+                        onClick={() => cycle.mutate(item)}
+                        className={`chip font-semibold ${STATE_STYLE[item.state]}`}
+                      >
+                        {item.state}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

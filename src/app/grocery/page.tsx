@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CloudOff,
   Plus,
+  Repeat,
   ShoppingCart,
   Store,
   X,
@@ -20,9 +21,28 @@ import {
   flushQueue,
   isNetworkError,
 } from "@/lib/offline-queue";
-import type { GroceryItem } from "@/lib/types";
+import type { GroceryItem, GroceryRegular } from "@/lib/types";
 import { STORE_LABELS } from "@/lib/types";
 import { VoiceBar } from "@/components/VoiceBar";
+
+/** Tap-to-create starters shown when the regulars palette is empty. */
+const SUGGESTED_REGULARS: {
+  name: string;
+  store: string;
+  category: string;
+}[] = [
+  { name: "Spinach", store: "whole_foods", category: "produce" },
+  { name: "Tomatoes", store: "whole_foods", category: "produce" },
+  { name: "Onions", store: "whole_foods", category: "produce" },
+  { name: "Cilantro", store: "whole_foods", category: "produce" },
+  { name: "Bananas", store: "whole_foods", category: "produce" },
+  { name: "Berries", store: "whole_foods", category: "produce" },
+  { name: "Milk", store: "whole_foods", category: "dairy" },
+  { name: "Yogurt", store: "whole_foods", category: "dairy" },
+  { name: "Eggs", store: "whole_foods", category: "dairy" },
+  { name: "Paneer", store: "indian_store", category: "dairy" },
+  { name: "Bread", store: "whole_foods", category: "bakery" },
+];
 
 const STORE_ORDER = ["whole_foods", "farmers_market", "indian_store"];
 const STORE_ICONS: Record<string, typeof ShoppingCart> = {
@@ -210,6 +230,8 @@ export default function GroceryPage() {
         </button>
       </form>
 
+      <MyRegulars weekStart={weekStart} items={items} />
+
       {isLoading && <p className="text-faint">Loading…</p>}
       {!isLoading && items.length === 0 && (
         <div className="card border-dashed p-8 text-center text-sm text-soft">
@@ -310,5 +332,187 @@ function GroceryRow({
         <X size={15} />
       </button>
     </div>
+  );
+}
+
+/**
+ * A reusable "usual buys" palette. Build it once; each week tap the items you
+ * need onto that week's list (tap again to drop). Perishables you re-buy
+ * often — produce, dairy — without retyping.
+ */
+function MyRegulars({
+  weekStart,
+  items,
+}: {
+  weekStart: string;
+  items: GroceryItem[];
+}) {
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [store, setStore] = useState("whole_foods");
+
+  const { data } = useQuery({
+    queryKey: ["regulars"],
+    queryFn: () => api<{ regulars: GroceryRegular[] }>("/api/grocery/regulars"),
+  });
+  const regulars = (data?.regulars ?? [])
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const onListByKey = new Map(items.map((i) => [i.pantryKey, i]));
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["grocery"] });
+
+  const addToList = useMutation({
+    mutationFn: (r: GroceryRegular) =>
+      api("/api/grocery", {
+        method: "POST",
+        json: {
+          name: r.name,
+          store: r.store,
+          category: r.category,
+          pantryKey: r.pantryKey,
+          weekStart,
+        },
+      }),
+    onSuccess: invalidate,
+  });
+  const removeFromList = useMutation({
+    mutationFn: (id: string) => api(`/api/grocery/${id}`, { method: "DELETE" }),
+    onSuccess: invalidate,
+  });
+  const createRegular = useMutation({
+    mutationFn: (v: { name: string; store: string; category?: string }) =>
+      api("/api/grocery/regulars", { method: "POST", json: v }),
+    onSuccess: () => {
+      setName("");
+      setAdding(false);
+      qc.invalidateQueries({ queryKey: ["regulars"] });
+    },
+  });
+  const deleteRegular = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/grocery/regulars/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["regulars"] }),
+  });
+
+  const toggle = (r: GroceryRegular) => {
+    const on = onListByKey.get(r.pantryKey);
+    if (on) removeFromList.mutate(on.id);
+    else addToList.mutate(r);
+  };
+
+  return (
+    <section className="card p-3.5">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-1.5 text-sm font-bold tracking-tight">
+          <Repeat size={15} className="text-accent" /> My regulars
+        </h2>
+        {regulars.length > 0 && (
+          <button
+            onClick={() => setEditing((e) => !e)}
+            className="text-xs font-semibold text-faint"
+          >
+            {editing ? "Done" : "Edit"}
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 text-[11px] text-faint">
+        Your weekly buys — tap to add to this list, tap again to drop.
+      </p>
+
+      {regulars.length === 0 && !adding && (
+        <div className="mt-2.5">
+          <p className="mb-1.5 text-xs text-soft">
+            Build your list once. Tap a starter to add it, or “＋ New”:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {SUGGESTED_REGULARS.map((s) => (
+              <button
+                key={s.name}
+                onClick={() => createRegular.mutate(s)}
+                className="chip border border-dashed border-line bg-surface/60 text-soft"
+              >
+                <Plus size={11} /> {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {regulars.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {regulars.map((r) => {
+            const on = onListByKey.has(r.pantryKey);
+            return (
+              <button
+                key={r.id}
+                onClick={() => (editing ? deleteRegular.mutate(r.id) : toggle(r))}
+                className={`chip font-medium transition ${
+                  editing
+                    ? "border border-bad/40 bg-bad-soft text-bad"
+                    : on
+                      ? "bg-accent text-on-accent"
+                      : "border border-line bg-surface/60 text-soft"
+                }`}
+              >
+                {editing ? (
+                  <X size={11} />
+                ) : on ? (
+                  <Check size={11} />
+                ) : (
+                  <Plus size={11} />
+                )}
+                {r.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {adding ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) createRegular.mutate({ name, store });
+          }}
+          className="mt-2.5 flex gap-2"
+        >
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            placeholder="e.g. Spinach"
+            className="input min-w-0 flex-1 py-2 text-sm"
+          />
+          <select
+            value={store}
+            onChange={(e) => setStore(e.target.value)}
+            className="input px-2 py-2 text-sm"
+          >
+            {STORE_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {STORE_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={!name.trim() || createRegular.isPending}
+            className="btn-primary px-3 disabled:opacity-40"
+          >
+            <Plus size={16} />
+          </button>
+        </form>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-2.5 text-xs font-semibold text-accent-deep"
+        >
+          ＋ New regular
+        </button>
+      )}
+    </section>
   );
 }

@@ -186,6 +186,23 @@ export const groceryItems = pgTable("grocery_items", {
   ...timestamps,
 });
 
+/** A reusable "usual buys" list of weekly perishables (produce, dairy, …).
+ *  Built once, then tapped each week to drop items onto that week's grocery
+ *  list. Distinct from pantry_items, which are long-lasting staples with a
+ *  have/low/out state. */
+export const groceryRegulars = pgTable(
+  "grocery_regulars",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    pantryKey: text("pantry_key").notNull(),
+    store: storeEnum("store").notNull().default("whole_foods"),
+    category: text("category").notNull().default("produce"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("grocery_regulars_key_idx").on(t.pantryKey)],
+);
+
 export const ratings = pgTable("ratings", {
   id: uuid("id").primaryKey().defaultRandom(),
   recipeId: uuid("recipe_id")

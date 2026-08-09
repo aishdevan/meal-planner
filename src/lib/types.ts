@@ -2,6 +2,7 @@ import type {
   absences,
   bookmarks,
   groceryItems,
+  groceryRegulars,
   members,
   pantryItems,
   planEntries,
@@ -12,6 +13,7 @@ import type {
 export type Recipe = typeof recipes.$inferSelect;
 export type PlanEntry = typeof planEntries.$inferSelect;
 export type GroceryItem = typeof groceryItems.$inferSelect;
+export type GroceryRegular = typeof groceryRegulars.$inferSelect;
 export type PantryItem = typeof pantryItems.$inferSelect;
 export type Member = typeof members.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
