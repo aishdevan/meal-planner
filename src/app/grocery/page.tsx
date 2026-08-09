@@ -352,6 +352,7 @@ function MyRegulars({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [store, setStore] = useState("whole_foods");
+  const keyOf = (n: string) => n.toLowerCase().replace(/\s+/g, "_");
 
   const { data } = useQuery({
     queryKey: ["regulars"],
@@ -360,9 +361,19 @@ function MyRegulars({
   const regulars = (data?.regulars ?? [])
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
+  const savedKeys = new Set(regulars.map((r) => r.pantryKey));
+  // Starters you haven't saved yet stay on offer, so tapping one never
+  // collapses the rest of the row.
+  const suggestions = SUGGESTED_REGULARS.filter(
+    (s) => !savedKeys.has(keyOf(s.name)),
+  );
 
   const onListByKey = new Map(items.map((i) => [i.pantryKey, i]));
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["grocery"] });
+  const invalidateList = () => qc.invalidateQueries({ queryKey: ["grocery"] });
+  const invalidateBoth = () => {
+    qc.invalidateQueries({ queryKey: ["grocery"] });
+    qc.invalidateQueries({ queryKey: ["regulars"] });
+  };
 
   const addToList = useMutation({
     mutationFn: (r: GroceryRegular) =>
@@ -376,11 +387,23 @@ function MyRegulars({
           weekStart,
         },
       }),
-    onSuccess: invalidate,
+    onSuccess: invalidateList,
   });
   const removeFromList = useMutation({
     mutationFn: (id: string) => api(`/api/grocery/${id}`, { method: "DELETE" }),
-    onSuccess: invalidate,
+    onSuccess: invalidateList,
+  });
+  // Tapping a starter both saves it as a regular AND drops it on this week's
+  // list, so the result is visible instead of the item just moving rows.
+  const quickAdd = useMutation({
+    mutationFn: async (s: { name: string; store: string; category: string }) => {
+      await api("/api/grocery/regulars", { method: "POST", json: s });
+      await api("/api/grocery", {
+        method: "POST",
+        json: { ...s, pantryKey: keyOf(s.name), weekStart },
+      });
+    },
+    onSuccess: invalidateBoth,
   });
   const createRegular = useMutation({
     // Accepts one name or several separated by commas / new lines, so you can
@@ -435,27 +458,10 @@ function MyRegulars({
         )}
       </div>
       <p className="mt-0.5 text-[11px] text-faint">
-        Your weekly buys — tap to add to this list, tap again to drop.
+        Your usual buys, saved so you don&apos;t retype them. Tap one to add it
+        to this week&apos;s list; tap again to take it off.
+        {editing && " Tap to remove from your regulars."}
       </p>
-
-      {regulars.length === 0 && !adding && (
-        <div className="mt-2.5">
-          <p className="mb-1.5 text-xs text-soft">
-            Build your list once. Tap a starter to add it, or “＋ New”:
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {SUGGESTED_REGULARS.map((s) => (
-              <button
-                key={s.name}
-                onClick={() => createRegular.mutate(s)}
-                className="chip border border-dashed border-line bg-surface/60 text-soft"
-              >
-                <Plus size={11} /> {s.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {regulars.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -484,6 +490,27 @@ function MyRegulars({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {!adding && !editing && suggestions.length > 0 && (
+        <div className="mt-2.5">
+          <p className="mb-1.5 text-[11px] text-faint">
+            {regulars.length === 0
+              ? "Tap the ones you usually buy to start your list:"
+              : "Add more to your regulars:"}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => (
+              <button
+                key={s.name}
+                onClick={() => quickAdd.mutate(s)}
+                className="chip border border-dashed border-line bg-surface/40 text-faint"
+              >
+                <Plus size={11} /> {s.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
