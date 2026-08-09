@@ -12,6 +12,7 @@ import {
   Clock,
   Dumbbell,
   Flame,
+  Hourglass,
   Luggage,
   Mic,
   Palmtree,
@@ -300,6 +301,11 @@ function FavoritesQuickAdd({
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-faint">
                   <Clock size={9} /> {r.totalTimeMinutes}min
+                  {r.needsPrep && (
+                    <span className="inline-flex items-center gap-0.5 text-terra">
+                      <Hourglass size={9} /> prep
+                    </span>
+                  )}
                 </span>
               </span>
             </button>
@@ -390,6 +396,11 @@ function FavoriteAddSheet({
           <Star size={11} fill="currentColor" /> Add a favorite
         </div>
         <h3 className="mt-1 text-xl font-bold tracking-tight">{recipe.title}</h3>
+        {recipe.needsPrep && (
+          <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-2xl bg-terra-soft px-3 py-1.5 text-xs font-medium text-terra">
+            <Hourglass size={12} /> Soak/prep the night before
+          </p>
+        )}
 
         <div className="mt-4">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-soft">

@@ -1,0 +1,1 @@
+ALTER TABLE "recipes" ADD COLUMN "needs_prep" boolean DEFAULT false NOT NULL;

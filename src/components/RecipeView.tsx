@@ -7,6 +7,7 @@ import {
   Clock,
   Dumbbell,
   Flame,
+  Hourglass,
   Leaf,
   Nut,
   Snowflake,
@@ -28,6 +29,11 @@ export function RecipeBadges({ recipe }: { recipe: Recipe }) {
       <span className="chip bg-accent-soft text-accent-deep">
         <Clock size={11} /> {recipe.totalTimeMinutes} min
       </span>
+      {recipe.needsPrep && (
+        <span className="chip bg-terra-soft font-semibold text-terra">
+          <Hourglass size={11} /> soak/prep ahead
+        </span>
+      )}
       {recipe.nutrition && (
         <span className="chip bg-accent-soft text-accent-deep">
           <Flame size={11} /> {recipe.nutrition.calories} kcal
@@ -145,35 +151,45 @@ export function RecipeView({
         </section>
       )}
 
-      <section>
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-soft">
-          Ingredients
-        </h3>
-        <ul className="space-y-1.5 text-sm">
-          {baseIngredients.map((i, idx) => (
-            <li key={idx} className="flex justify-between gap-3">
-              <span>{i.name}</span>
-              <span className="shrink-0 text-faint">{i.qty_text}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {baseIngredients.length === 0 && recipe.steps.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-line bg-surface/40 px-3.5 py-3 text-sm text-soft">
+          One of your go-to meals — no written recipe needed.
+        </p>
+      )}
 
-      <section>
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-soft">
-          Steps
-        </h3>
-        <ol className="space-y-2.5 text-sm leading-relaxed">
-          {recipe.steps.map((s, idx) => (
-            <li key={idx} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-deep">
-                {idx + 1}
-              </span>
-              <span className="pt-0.5">{s}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {baseIngredients.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-soft">
+            Ingredients
+          </h3>
+          <ul className="space-y-1.5 text-sm">
+            {baseIngredients.map((i, idx) => (
+              <li key={idx} className="flex justify-between gap-3">
+                <span>{i.name}</span>
+                <span className="shrink-0 text-faint">{i.qty_text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {recipe.steps.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-soft">
+            Steps
+          </h3>
+          <ol className="space-y-2.5 text-sm leading-relaxed">
+            {recipe.steps.map((s, idx) => (
+              <li key={idx} className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-deep">
+                  {idx + 1}
+                </span>
+                <span className="pt-0.5">{s}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {addon && includeAddon && (
         <section className="rounded-3xl border border-terra/25 bg-terra-soft p-4">

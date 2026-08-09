@@ -117,6 +117,9 @@ export const recipes = pgTable("recipes", {
   isNutFree: boolean("is_nut_free").notNull().default(true),
   noReheatOk: boolean("no_reheat_ok").notNull().default(false),
   kidFriendly: boolean("kid_friendly").notNull().default(false),
+  /** Needs soaking/fermenting/marinating the day before — a planning cue so
+   *  the family knows to start prep ahead (idli, dosa, chole, overnight oats…). */
+  needsPrep: boolean("needs_prep").notNull().default(false),
   totalTimeMinutes: integer("total_time_minutes").notNull(),
   appliances: text("appliances").array().notNull().default([]),
   proteinGBase: integer("protein_g_base").notNull(),
