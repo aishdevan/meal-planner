@@ -9,6 +9,7 @@ import {
   Flame,
   Meh,
   Palmtree,
+  Soup,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
@@ -129,6 +130,7 @@ function MealCard({
   cooking: boolean;
 }) {
   const done = entry.status === "cooked";
+  const leftover = entry.status === "leftover";
   return (
     <div className={`card overflow-hidden ${done ? "opacity-65" : ""}`}>
       <button onClick={onToggle} className="w-full p-4 text-left">
@@ -139,6 +141,11 @@ function MealCard({
           {done && (
             <span className="chip bg-good-soft font-semibold text-good">
               <Check size={11} /> cooked
+            </span>
+          )}
+          {leftover && (
+            <span className="chip bg-terra-soft font-semibold text-terra">
+              <Soup size={11} /> leftovers
             </span>
           )}
         </div>
@@ -169,7 +176,12 @@ function MealCard({
       {open && (
         <div className="border-t border-line p-4">
           <RecipeView recipe={recipe} includeAddon={entry.includeAddon} />
-          {!done && (
+          {leftover && (
+            <p className="mt-4 flex items-center gap-1.5 rounded-2xl bg-terra-soft px-3.5 py-2.5 text-sm font-medium text-terra">
+              <Soup size={15} /> Leftovers from a weekend cook — just reheat.
+            </p>
+          )}
+          {!done && !leftover && (
             <button
               onClick={onCooked}
               disabled={cooking}

@@ -5,6 +5,7 @@ import {
   Baby,
   BookOpen,
   Clock,
+  Drumstick,
   Dumbbell,
   Flame,
   Hourglass,
@@ -32,6 +33,11 @@ export function RecipeBadges({ recipe }: { recipe: Recipe }) {
       {recipe.needsPrep && (
         <span className="chip bg-terra-soft font-semibold text-terra">
           <Hourglass size={11} /> soak/prep ahead
+        </span>
+      )}
+      {recipe.nonvegAddon?.marinateAhead && (
+        <span className="chip bg-terra-soft font-semibold text-terra">
+          <Drumstick size={11} /> marinate ahead
         </span>
       )}
       {recipe.nutrition && (
@@ -199,6 +205,11 @@ export function RecipeView({
               (+{addon.protein_g}g protein)
             </span>
           </h3>
+          {addon.marinateAhead && (
+            <p className="mb-2 inline-flex items-center gap-1.5 rounded-2xl bg-terra/10 px-3 py-1.5 text-xs font-semibold text-terra">
+              <Drumstick size={12} /> Marinate the night before
+            </p>
+          )}
           {addonIngredients.length > 0 && (
             <ul className="mb-2 space-y-1 text-sm">
               {addonIngredients.map((i, idx) => (

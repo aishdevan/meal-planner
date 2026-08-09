@@ -29,6 +29,7 @@ export const planStatusEnum = pgEnum("plan_status", [
   "planned",
   "cooked",
   "skipped",
+  "leftover",
 ]);
 export const generatedByEnum = pgEnum("generated_by", ["claude", "manual"]);
 export const pantryStateEnum = pgEnum("pantry_state", ["have", "low", "out"]);
@@ -103,6 +104,9 @@ export type NonvegAddon = {
   steps: string[];
   protein_g: number;
   nutrition?: Nutrition;
+  /** Chicken/tandoori that should be marinated the night before — surfaces a
+   *  "marinate ahead" reminder when this add-on is planned. */
+  marinateAhead?: boolean;
 };
 
 export const recipes = pgTable("recipes", {

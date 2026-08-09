@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Drumstick,
   Dumbbell,
   Flame,
   Hourglass,
@@ -19,9 +20,11 @@ import {
   Plus,
   RotateCcw,
   Send,
+  Soup,
   Sparkles,
   Star,
   ThumbsDown,
+  Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { addDays, mondayOf, todayString, weekDates } from "@/lib/dates";
@@ -53,6 +56,7 @@ export default function WeekPage() {
     recipe: Recipe;
   } | null>(null);
   const [showAway, setShowAway] = useState(false);
+  const [showLeftovers, setShowLeftovers] = useState(false);
   const [addingFav, setAddingFav] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,6 +140,13 @@ export default function WeekPage() {
       <FavoritesQuickAdd favorites={favorites} onPick={setAddingFav} />
 
       <button
+        onClick={() => setShowLeftovers(true)}
+        className="btn-secondary flex w-full items-center justify-center gap-2 py-2.5 text-sm text-terra"
+      >
+        <Soup size={16} /> Log weekend leftovers
+      </button>
+
+      <button
         onClick={() => generate.mutate(undefined)}
         disabled={generate.isPending}
         className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg disabled:opacity-60"
@@ -210,15 +221,22 @@ export default function WeekPage() {
                         className={`rounded-2xl border border-line px-2.5 py-2 text-left transition active:scale-[.98] ${
                           entry.status === "cooked"
                             ? "bg-good-soft"
-                            : entry.status === "skipped"
-                              ? "bg-surface/40 opacity-50"
-                              : "bg-surface/60"
+                            : entry.status === "leftover"
+                              ? "bg-terra-soft"
+                              : entry.status === "skipped"
+                                ? "bg-surface/40 opacity-50"
+                                : "bg-surface/60"
                         }`}
                       >
                         <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-faint">
                           {SLOT_LABELS[slot]}
                           {entry.status === "cooked" && (
                             <Check size={10} className="text-good" />
+                          )}
+                          {entry.status === "leftover" && (
+                            <span className="inline-flex items-center gap-0.5 text-terra">
+                              <Soup size={10} /> leftovers
+                            </span>
                           )}
                         </div>
                         <div className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug">
@@ -258,6 +276,198 @@ export default function WeekPage() {
           onClose={() => setAddingFav(null)}
         />
       )}
+      {showLeftovers && (
+        <LeftoversSheet
+          weekStart={weekStart}
+          recipes={recipesData?.recipes ?? []}
+          onClose={() => setShowLeftovers(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function LeftoversSheet({
+  weekStart,
+  recipes,
+  onClose,
+}: {
+  weekStart: string;
+  recipes: Recipe[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const dates = weekDates(weekStart);
+  const [search, setSearch] = useState("");
+  const [recipeId, setRecipeId] = useState<string | null>(null);
+  const [slot, setSlot] = useState<string>("dinner");
+  // Default: carries over to Monday (the start of the viewed week).
+  const [days, setDays] = useState<Set<string>>(new Set([dates[0]]));
+  const [error, setError] = useState<string | null>(null);
+
+  const matches = recipes
+    .filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
+    .sort(
+      (a, b) =>
+        Number(b.isFavorite) - Number(a.isFavorite) ||
+        a.title.localeCompare(b.title),
+    )
+    .slice(0, search ? 20 : 8);
+  const selectedRecipe = recipes.find((r) => r.id === recipeId);
+
+  const toggleDay = (d: string) =>
+    setDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+
+  const save = useMutation({
+    mutationFn: () =>
+      api("/api/plan/leftovers", {
+        method: "POST",
+        json: {
+          recipeId,
+          slots: [...days].map((date) => ({ date, slot })),
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const dayLabel = (d: string) =>
+    new Date(d + "T12:00:00").toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+    });
+  const SLOTS = ["breakfast", "lunch", "dinner"];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="sheet max-h-[88vh] w-full max-w-lg overflow-y-auto p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="flex items-center gap-2 text-lg font-bold tracking-tight">
+          <Soup size={20} className="text-terra" /> Log weekend leftovers
+        </h3>
+        <p className="mt-1 text-sm text-soft">
+          Carry a batch-cook into the week. Those meals are marked as leftovers —
+          skipped for the grocery list and left out of auto-planning.
+        </p>
+
+        {!recipeId ? (
+          <div className="mt-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+              placeholder="Which dish did you make?"
+              className="input w-full"
+            />
+            <div className="mt-2 space-y-1.5">
+              {matches.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setRecipeId(r.id)}
+                  className="flex w-full items-center gap-2 rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5 text-left text-sm active:scale-[.99]"
+                >
+                  {r.isFavorite && (
+                    <Star size={12} className="shrink-0 text-accent" fill="currentColor" />
+                  )}
+                  {r.title}
+                </button>
+              ))}
+              {matches.length === 0 && (
+                <p className="text-sm text-faint">
+                  No match. Add it in the Recipes tab first, then log it here.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-terra-soft px-3.5 py-2.5">
+              <span className="text-sm font-semibold text-terra">
+                {selectedRecipe?.title}
+              </span>
+              <button
+                onClick={() => setRecipeId(null)}
+                className="text-xs font-semibold text-terra underline"
+              >
+                change
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-soft">
+                Which meal?
+              </div>
+              <div className="mt-1.5 flex gap-1.5">
+                {SLOTS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSlot(s)}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                      slot === s
+                        ? "border-accent bg-accent text-on-accent"
+                        : "border-line bg-surface/60 text-soft"
+                    }`}
+                  >
+                    {SLOT_LABELS[s]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-soft">
+                Which days? (Monday by default)
+              </div>
+              <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                {dates.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => toggleDay(d)}
+                    className={`rounded-2xl border py-2 text-xs font-medium transition ${
+                      days.has(d)
+                        ? "border-accent bg-accent text-on-accent"
+                        : "border-line bg-surface/60 text-soft"
+                    }`}
+                  >
+                    {dayLabel(d)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && <p className="mt-3 text-sm text-bad">{error}</p>}
+
+            <div className="mt-5 flex gap-3">
+              <button onClick={onClose} className="btn-secondary flex-1 py-3">
+                Cancel
+              </button>
+              <button
+                onClick={() => save.mutate()}
+                disabled={save.isPending || days.size === 0}
+                className="btn-primary flex-1 py-3 disabled:opacity-50"
+              >
+                {save.isPending
+                  ? "Saving…"
+                  : `Log for ${days.size} day${days.size === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -678,6 +888,15 @@ function EntrySheet({
     },
     onError: (e) => setError(e.message),
   });
+  const remove = useMutation({
+    mutationFn: () =>
+      api(`/api/plan/entry/${entry.id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
 
   const { data: alts, isLoading: altsLoading } = useQuery({
     queryKey: ["alternatives", entry.id],
@@ -710,7 +929,27 @@ function EntrySheet({
         )}
         {error && <p className="mt-2 text-sm text-bad">{error}</p>}
 
-        {!picking ? (
+        {entry.status === "leftover" ? (
+          <div className="mt-4 space-y-2">
+            <p className="flex items-center gap-1.5 rounded-2xl bg-terra-soft px-3.5 py-2.5 text-sm font-medium text-terra">
+              <Soup size={15} /> Carried over as leftovers from a weekend cook.
+            </p>
+            <Link
+              href={`/recipes/${recipe.id}`}
+              className="btn-primary block w-full py-3 text-center"
+            >
+              View full recipe
+            </Link>
+            <button
+              onClick={() => remove.mutate()}
+              disabled={remove.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-bad-soft py-3 font-semibold text-bad disabled:opacity-50"
+            >
+              <Trash2 size={16} />{" "}
+              {remove.isPending ? "Removing…" : "Remove leftover"}
+            </button>
+          </div>
+        ) : !picking ? (
           <div className="mt-4 space-y-2">
             <Link
               href={`/recipes/${recipe.id}`}
@@ -727,6 +966,11 @@ function EntrySheet({
                   ? `Skip the ${recipe.nonvegAddon.name}`
                   : `Add ${recipe.nonvegAddon.name} for Rahul & Elai`}
               </button>
+            )}
+            {recipe.nonvegAddon?.marinateAhead && entry.includeAddon && (
+              <p className="flex items-center justify-center gap-1.5 rounded-2xl bg-terra/10 py-2.5 text-sm font-semibold text-terra">
+                <Drumstick size={14} /> Marinate the chicken the night before
+              </p>
             )}
             <button
               onClick={() => setPicking(true)}

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne, notInArray } from "drizzle-orm";
 import { db, tables } from "@/db";
 import type { Ingredient, NonvegAddon } from "@/db/schema";
 import { claudeAvailable, structuredCall } from "@/lib/claude";
@@ -256,20 +256,21 @@ export async function generatePlan(opts: {
     ]),
   );
 
-  // Preserve already-cooked entries: never regenerate those slots.
+  // Preserve already-cooked entries and leftover carry-overs: never
+  // regenerate or re-plan those slots.
   const existing = await db
     .select()
     .from(tables.planEntries)
     .where(inArray(tables.planEntries.date, targetDates));
-  const cooked = new Set(
+  const locked = new Set(
     existing
-      .filter((e) => e.status === "cooked")
+      .filter((e) => e.status === "cooked" || e.status === "leftover")
       .map((e) => `${e.date}:${e.slot}`),
   );
   for (const [date, slots] of slotsByDate) {
     slotsByDate.set(
       date,
-      slots.filter((s) => !cooked.has(`${date}:${s}`)),
+      slots.filter((s) => !locked.has(`${date}:${s}`)),
     );
   }
 
@@ -469,7 +470,7 @@ async function persistPlan(
           and(
             eq(tables.planEntries.date, date),
             eq(tables.planEntries.slot, slot),
-            ne(tables.planEntries.status, "cooked"),
+            notInArray(tables.planEntries.status, ["cooked", "leftover"]),
           ),
         );
     }
