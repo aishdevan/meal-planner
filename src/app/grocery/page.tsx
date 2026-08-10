@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { addDays, mondayOf, todayString } from "@/lib/dates";
+import { addDays, planningWeekStart, todayString } from "@/lib/dates";
 import {
   enqueueToggle,
   flushQueue,
@@ -52,12 +52,10 @@ const STORE_ICONS: Record<string, typeof ShoppingCart> = {
 };
 
 export default function GroceryPage() {
-  // Weekend shopping is for NEXT week's plan; from Sat onward show next week.
+  // Weekend shopping is for NEXT week's plan; planningWeekStart handles the
+  // weekend roll-forward, shared with the Week tab so they always agree.
   const today = todayString();
-  const dow = new Date().getDay();
-  const defaultWeek =
-    dow === 6 || dow === 0 ? mondayOf(addDays(today, 7)) : mondayOf(today);
-  const [weekStart, setWeekStart] = useState(defaultWeek);
+  const [weekStart, setWeekStart] = useState(planningWeekStart(today));
   const [newItem, setNewItem] = useState("");
   const [newStore, setNewStore] = useState("whole_foods");
   const [pendingSync, setPendingSync] = useState(0);

@@ -32,7 +32,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { addDays, mondayOf, todayString, weekDates } from "@/lib/dates";
+import {
+  addDays,
+  planningWeekStart,
+  todayString,
+  weekDates,
+} from "@/lib/dates";
 import type {
   Bookmark,
   CoverageItem,
@@ -56,7 +61,7 @@ type EnrichedProposal = Omit<CommandProposal, "assignments"> & {
 
 export default function WeekPage() {
   const today = todayString();
-  const [weekStart, setWeekStart] = useState(mondayOf(today));
+  const [weekStart, setWeekStart] = useState(planningWeekStart(today));
   const qc = useQueryClient();
   const [selected, setSelected] = useState<{
     entry: PlanEntry;

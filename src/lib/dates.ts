@@ -38,3 +38,14 @@ export function isWeekday(dateStr: string): boolean {
 export function todayString(): string {
   return toDateString(new Date());
 }
+
+/** The week to plan/shop for by default. Weekdays → this week's Monday. On the
+ *  weekend it rolls forward to next Monday, because the family plans and shops
+ *  on the weekend for the week ahead. Used by BOTH the Week and Grocery tabs so
+ *  they always agree on "this week" (otherwise weekend planning splits across
+ *  two different weeks). */
+export function planningWeekStart(todayStr: string = todayString()): string {
+  const day = parseDate(todayStr).getDay(); // Sun=0 … Sat=6
+  const base = day === 0 || day === 6 ? addDays(todayStr, 7) : todayStr;
+  return mondayOf(base);
+}
