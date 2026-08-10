@@ -6,8 +6,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const weekStart: string = body.weekStart ?? mondayOf(todayString());
   const dates: string[] | undefined = body.dates;
+  const guidance: string | undefined =
+    typeof body.guidance === "string" ? body.guidance : undefined;
+  const fillGapsOnly: boolean = Boolean(body.fillGapsOnly);
   try {
-    const result = await generatePlan({ weekStart, dates });
+    const result = await generatePlan({
+      weekStart,
+      dates,
+      guidance,
+      fillGapsOnly,
+    });
     return NextResponse.json({ weekStart, ...result });
   } catch (err) {
     return NextResponse.json(

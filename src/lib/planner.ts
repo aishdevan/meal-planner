@@ -190,6 +190,7 @@ async function claudePlan(
   pantryHave: string[],
   ratingsSummary: string,
   pendingBookmarks: string[],
+  guidance?: string,
   priorViolations?: string[],
 ): Promise<WeekPlan> {
   const catalog = recipes
@@ -220,6 +221,9 @@ async function claudePlan(
     `RATINGS SIGNALS: ${ratingsSummary || "no ratings yet"}`,
     ``,
     `SAVED LINKS the family bookmarked (consider ideas inspired by these): ${pendingBookmarks.join(" | ") || "none"}`,
+    guidance?.trim()
+      ? `\nTHE FAMILY'S BRIEF FOR THIS WEEK (honor any specific day/meal requests exactly; use the rest as strong preferences while you fill the remaining slots): "${guidance.trim()}"`
+      : ``,
     priorViolations?.length
       ? `\nYOUR PREVIOUS ATTEMPT VIOLATED THESE HARD CONSTRAINTS — fix them:\n${priorViolations.join("\n")}`
       : ``,
@@ -240,6 +244,8 @@ export async function generatePlan(opts: {
   weekStart: string;
   dates?: string[]; // scoped readjustment; defaults to the whole week
   onlySlot?: Slot; // swap a single slot (combined with a single date)
+  guidance?: string; // free-text brief: "Tuesday rajma, keep breakfasts light"
+  fillGapsOnly?: boolean; // only plan slots that are still empty (keep manual picks)
 }): Promise<{ planned: number; newRecipes: number; groceryItems: number }> {
   const allDates = weekDates(opts.weekStart);
   const targetDates = opts.dates?.length
@@ -272,6 +278,18 @@ export async function generatePlan(opts: {
       date,
       slots.filter((s) => !locked.has(`${date}:${s}`)),
     );
+  }
+
+  // "Fill the gaps" mode: leave every slot that already has a pick (e.g. the
+  // meals just dictated) untouched, and only plan the ones still empty.
+  if (opts.fillGapsOnly) {
+    const occupied = new Set(existing.map((e) => `${e.date}:${e.slot}`));
+    for (const [date, slots] of slotsByDate) {
+      slotsByDate.set(
+        date,
+        slots.filter((s) => !occupied.has(`${date}:${s}`)),
+      );
+    }
   }
 
   const recipes = await db.select().from(tables.recipes);
@@ -332,6 +350,7 @@ export async function generatePlan(opts: {
       pantryHave,
       ratingsSummary,
       bookmarkTexts,
+      opts.guidance,
     );
     // Server-side hard-constraint check — never trust the model; one retry.
     const violations = validateWeekPlan(plan, recipes, absences);
@@ -345,6 +364,7 @@ export async function generatePlan(opts: {
         pantryHave,
         ratingsSummary,
         bookmarkTexts,
+        opts.guidance,
         violations,
       );
       const still = validateWeekPlan(plan, recipes, absences);

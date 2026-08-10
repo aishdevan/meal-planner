@@ -718,6 +718,35 @@ function CommandBar({ weekStart }: { weekStart: string }) {
     onError: (e) => setError(e.message),
   });
 
+  // Apply whatever concrete meals were dictated, then let Claude fill the
+  // remaining empty slots — honoring the whole brief as guidance.
+  const applyAndFill = useMutation({
+    mutationFn: async (p: {
+      assignments: EnrichedAssignment[];
+      brief: string;
+    }) => {
+      if (p.assignments.length > 0) {
+        await api("/api/plan/command/apply", {
+          method: "POST",
+          json: { assignments: p.assignments },
+        });
+      }
+      return api("/api/plan/generate", {
+        method: "POST",
+        json: { weekStart, guidance: p.brief, fillGapsOnly: true },
+      });
+    },
+    onSuccess: () => {
+      setProposal(null);
+      setText("");
+      setResult(null);
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+    },
+    onError: (e) => setError(e.message),
+  });
+
   return (
     <div>
       <form
@@ -746,9 +775,9 @@ function CommandBar({ weekStart }: { weekStart: string }) {
         </button>
       </form>
       <p className="mt-1 pl-1 text-[10px] text-faint">
-        Tap the box, then use the 🎤 on your keyboard to dictate — e.g. “rajma
-        Tuesday dinner”. Works for any day, meal, Elai&apos;s lunchbox, or your ★
-        favorites.
+        Tap the box and dictate with the 🎤 — rattle off as much as you like
+        (“Monday chole leftovers, Tuesday pasta, keep breakfasts light”). Then
+        set just those, or fill the rest of the week automatically.
       </p>
       {parse.isPending && (
         <p className="mt-1 pl-1 text-xs text-soft">Working out what you meant…</p>
@@ -793,8 +822,8 @@ function CommandBar({ weekStart }: { weekStart: string }) {
             )}
             {proposal.assignments.length === 0 ? (
               <p className="mt-3 text-sm text-soft">
-                I couldn&apos;t turn that into any meal slots — try naming a day,
-                a meal, and a dish.
+                No specific meal slots in that — but I can still generate the
+                week, using what you said as guidance.
               </p>
             ) : (
               <div className="mt-3 space-y-2">
@@ -826,21 +855,40 @@ function CommandBar({ weekStart }: { weekStart: string }) {
                 ))}
               </div>
             )}
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={() =>
+                  applyAndFill.mutate({
+                    assignments: proposal.assignments,
+                    brief: text,
+                  })
+                }
+                disabled={apply.isPending || applyAndFill.isPending}
+                className="btn-primary flex w-full items-center justify-center gap-2 py-3 disabled:opacity-50"
+              >
+                <Sparkles size={16} />
+                {applyAndFill.isPending
+                  ? "Planning your week…"
+                  : proposal.assignments.length > 0
+                    ? "Apply & fill the rest of the week"
+                    : "Generate the week from this"}
+              </button>
+              {proposal.assignments.length > 0 && (
+                <button
+                  onClick={() => apply.mutate(proposal.assignments)}
+                  disabled={apply.isPending || applyAndFill.isPending}
+                  className="btn-secondary w-full py-3 disabled:opacity-50"
+                >
+                  {apply.isPending
+                    ? "Applying…"
+                    : `Just apply ${proposal.assignments.length} change${proposal.assignments.length === 1 ? "" : "s"}`}
+                </button>
+              )}
               <button
                 onClick={() => setProposal(null)}
-                className="btn-secondary flex-1 py-3"
+                className="w-full py-2 text-sm text-faint"
               >
                 Cancel
-              </button>
-              <button
-                onClick={() => apply.mutate(proposal.assignments)}
-                disabled={proposal.assignments.length === 0 || apply.isPending}
-                className="btn-primary flex-1 py-3 disabled:opacity-50"
-              >
-                {apply.isPending
-                  ? "Applying…"
-                  : `Apply ${proposal.assignments.length} change${proposal.assignments.length === 1 ? "" : "s"}`}
               </button>
             </div>
           </div>
