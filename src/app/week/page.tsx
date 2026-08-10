@@ -10,6 +10,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
+  ClipboardCheck,
   Clock,
   Drumstick,
   Dumbbell,
@@ -21,6 +23,7 @@ import {
   Plus,
   RotateCcw,
   Send,
+  ShoppingCart,
   Soup,
   Sparkles,
   Star,
@@ -31,6 +34,8 @@ import { api } from "@/lib/api";
 import { addDays, mondayOf, todayString, weekDates } from "@/lib/dates";
 import type {
   Bookmark,
+  CoverageItem,
+  CoverageResponse,
   Member,
   PlanEntry,
   PlanResponse,
@@ -85,6 +90,7 @@ export default function WeekPage() {
       setError(null);
       qc.invalidateQueries({ queryKey: ["plan"] });
       qc.invalidateQueries({ queryKey: ["grocery"] });
+      qc.invalidateQueries({ queryKey: ["coverage"] });
     },
     onError: (e) => setError(e.message),
   });
@@ -164,6 +170,8 @@ export default function WeekPage() {
           {error}
         </p>
       )}
+
+      {hasAnyPlan && <CoverageCard weekStart={weekStart} />}
 
       {isLoading && <p className="text-faint">Loading…</p>}
 
@@ -284,6 +292,109 @@ export default function WeekPage() {
           onClose={() => setShowLeftovers(false)}
         />
       )}
+    </div>
+  );
+}
+
+/** After a plan exists, confirm every planned dish's main items are either at
+ *  home or on the grocery list — and offer to add the ones that aren't. */
+function CoverageCard({ weekStart }: { weekStart: string }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["coverage", weekStart],
+    queryFn: () =>
+      api<CoverageResponse>(`/api/plan/coverage?weekStart=${weekStart}`),
+  });
+
+  const addMissing = useMutation({
+    mutationFn: async (items: CoverageItem[]) => {
+      for (const it of items) {
+        await api("/api/grocery", {
+          method: "POST",
+          json: {
+            name: it.name,
+            pantryKey: it.pantryKey,
+            store: it.store,
+            category: it.category,
+            weekStart,
+          },
+        });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coverage"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+    },
+  });
+
+  if (!data) return null;
+  const uncovered = data.items.filter((i) => i.status === "uncovered");
+  const needsAttention = uncovered.length > 0 || data.recipesMissingInfo.length > 0;
+
+  const summary =
+    data.onList + data.atHome === 0
+      ? "No fresh items needed — the menu runs on staples."
+      : `${data.onList} to buy · ${data.atHome} already at home`;
+
+  if (!needsAttention) {
+    return (
+      <div className="card flex items-center gap-3 p-4">
+        <ClipboardCheck size={20} className="shrink-0 text-good" />
+        <div>
+          <p className="text-sm font-bold">Everything on the menu is covered</p>
+          <p className="mt-0.5 text-xs text-soft">{summary}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card space-y-3 p-4">
+      <div className="flex items-center gap-2">
+        <CircleAlert size={18} className="shrink-0 text-terra" />
+        <p className="text-sm font-bold">
+          {uncovered.length > 0
+            ? `${uncovered.length} main item${uncovered.length > 1 ? "s" : ""} not on your list yet`
+            : "Some dishes need a coverage check"}
+        </p>
+      </div>
+
+      {uncovered.length > 0 && (
+        <ul className="space-y-1.5">
+          {uncovered.map((it) => (
+            <li key={it.pantryKey} className="flex items-baseline gap-2 text-sm">
+              <ShoppingCart size={13} className="translate-y-0.5 shrink-0 text-faint" />
+              <span className="font-medium">{it.name}</span>
+              <span className="text-xs text-faint">
+                for {it.recipeTitles.join(", ")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {data.recipesMissingInfo.length > 0 && (
+        <p className="text-xs text-soft">
+          No ingredient info for {data.recipesMissingInfo.join(", ")} — double-check
+          you have what you need.
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-soft">{summary}</span>
+        {uncovered.length > 0 && (
+          <button
+            onClick={() => addMissing.mutate(uncovered)}
+            disabled={addMissing.isPending}
+            className="btn-primary flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-60"
+          >
+            <Plus size={15} />
+            {addMissing.isPending
+              ? "Adding…"
+              : `Add ${uncovered.length} to grocery list`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

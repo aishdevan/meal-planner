@@ -31,6 +31,24 @@ export type PlanResponse = {
   elaiNoSchoolDates: string[];
 };
 
+export type CoverageStatus = "at_home" | "on_list" | "uncovered";
+export type CoverageItem = {
+  name: string;
+  pantryKey: string;
+  status: CoverageStatus;
+  store: "whole_foods" | "farmers_market" | "indian_store";
+  category: string;
+  recipeTitles: string[];
+};
+export type CoverageResponse = {
+  weekStart: string;
+  items: CoverageItem[];
+  atHome: number;
+  onList: number;
+  uncovered: number;
+  recipesMissingInfo: string[];
+};
+
 export const SLOT_LABELS: Record<string, string> = {
   breakfast: "Breakfast",
   lunch: "Lunch",
