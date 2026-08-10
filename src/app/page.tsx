@@ -9,7 +9,10 @@ import {
   Flame,
   Meh,
   Palmtree,
+  Replace,
+  Search,
   Soup,
+  Star,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
@@ -31,10 +34,15 @@ export default function TodayPage() {
   const qc = useQueryClient();
   const [openEntry, setOpenEntry] = useState<string | null>(null);
   const [rateFor, setRateFor] = useState<CookedResult | null>(null);
+  const [changing, setChanging] = useState<PlanEntry | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["plan", weekStart],
     queryFn: () => api<PlanResponse>(`/api/plan?weekStart=${weekStart}`),
+  });
+  const { data: recipesData } = useQuery({
+    queryKey: ["recipes"],
+    queryFn: () => api<{ recipes: Recipe[] }>("/api/recipes"),
   });
 
   const cook = useMutation({
@@ -104,12 +112,20 @@ export default function TodayPage() {
               setOpenEntry(openEntry === entry.id ? null : entry.id)
             }
             onCooked={() => cook.mutate(entry.id)}
+            onChange={() => setChanging(entry)}
             cooking={cook.isPending}
           />
         );
       })}
 
       {rateFor && <RateSheet result={rateFor} onDone={() => setRateFor(null)} />}
+      {changing && (
+        <ChangeMealSheet
+          entry={changing}
+          recipes={recipesData?.recipes ?? []}
+          onClose={() => setChanging(null)}
+        />
+      )}
     </div>
   );
 }
@@ -120,6 +136,7 @@ function MealCard({
   open,
   onToggle,
   onCooked,
+  onChange,
   cooking,
 }: {
   entry: PlanEntry;
@@ -127,6 +144,7 @@ function MealCard({
   open: boolean;
   onToggle: () => void;
   onCooked: () => void;
+  onChange: () => void;
   cooking: boolean;
 }) {
   const done = entry.status === "cooked";
@@ -182,16 +200,135 @@ function MealCard({
             </p>
           )}
           {!done && !leftover && (
-            <button
-              onClick={onCooked}
-              disabled={cooking}
-              className="btn-primary mt-5 w-full py-3.5 text-lg disabled:opacity-50"
-            >
-              {cooking ? "Saving…" : "Mark cooked"}
-            </button>
+            <div className="mt-5 space-y-2">
+              <button
+                onClick={onCooked}
+                disabled={cooking}
+                className="btn-primary w-full py-3.5 text-lg disabled:opacity-50"
+              >
+                {cooking ? "Saving…" : "Mark cooked"}
+              </button>
+              <button
+                onClick={onChange}
+                className="btn-secondary flex w-full items-center justify-center gap-2 py-3 text-sm"
+              >
+                <Replace size={15} /> Made something else?
+              </button>
+            </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** "I made something else" — swap today's slot to a different recipe. Favorites
+ *  first, searchable, and school-lunch stays nut-free + no-reheat. */
+function ChangeMealSheet({
+  entry,
+  recipes,
+  onClose,
+}: {
+  entry: PlanEntry;
+  recipes: Recipe[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const patch = useMutation({
+    mutationFn: (recipeId: string) =>
+      api(`/api/plan/entry/${entry.id}`, {
+        method: "PATCH",
+        json: { recipeId },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const isSchoolLunch = entry.slot === "school_lunch";
+  const needle = q.trim().toLowerCase();
+  const options = recipes
+    .filter((r) => r.id !== entry.recipeId)
+    .filter((r) => r.mealTypes.includes(entry.slot))
+    .filter((r) => !isSchoolLunch || (r.isNutFree && r.noReheatOk))
+    .filter((r) => !needle || r.title.toLowerCase().includes(needle))
+    .sort((a, b) =>
+      a.isFavorite === b.isFavorite
+        ? a.title.localeCompare(b.title)
+        : a.isFavorite
+          ? -1
+          : 1,
+    );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="sheet flex max-h-[85vh] w-full max-w-lg flex-col p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent-deep">
+          {SLOT_LABELS[entry.slot]}
+        </div>
+        <h3 className="mt-1 text-xl font-bold tracking-tight">
+          What did you make instead?
+        </h3>
+        <p className="mt-1 text-sm text-soft">
+          Swaps today&apos;s plan and updates the grocery list.
+          {isSchoolLunch && " Nut-free & no-reheat only."}
+        </p>
+        {error && <p className="mt-2 text-sm text-bad">{error}</p>}
+
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5">
+          <Search size={15} className="shrink-0 text-faint" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search your meals…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-faint"
+          />
+        </div>
+
+        <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto">
+          {options.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => patch.mutate(r.id)}
+              disabled={patch.isPending}
+              className="w-full rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5 text-left transition active:scale-[.99] disabled:opacity-50"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{r.title}</span>
+                {r.isFavorite && (
+                  <Star size={13} className="shrink-0 fill-accent text-accent" />
+                )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-soft">
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={11} /> {r.totalTimeMinutes}min
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Dumbbell size={11} /> {r.proteinGBase}
+                  {r.proteinGWithAddon ? `–${r.proteinGWithAddon}` : ""}g
+                </span>
+              </div>
+            </button>
+          ))}
+          {options.length === 0 && (
+            <p className="py-6 text-center text-sm text-faint">
+              No matching meals. Add it from the Recipes tab, then pick it here.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
