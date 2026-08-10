@@ -25,6 +25,8 @@ const STUBS: {
   protein: number;
   needsPrep?: boolean;
   nutFree?: boolean;
+  noReheat?: boolean;
+  veg?: boolean;
 }[] = [
   // breakfast
   { title: "PB&J", slots: ["breakfast"], cuisine: "American", protein: 12, nutFree: false },
@@ -41,6 +43,10 @@ const STUBS: {
   { title: "Pasta", slots: ["lunch", "dinner"], cuisine: "Italian", protein: 12 },
   { title: "Moong Dal Chila", slots: ["lunch", "dinner"], cuisine: "Indian", protein: 14, needsPrep: true },
   { title: "Paneer", slots: ["lunch", "dinner"], cuisine: "Indian", protein: 18 },
+  // Elai's lunchbox go-tos (nut-free + no-reheat safe)
+  { title: "Broccoli Mac & Cheese", slots: ["school_lunch", "lunch"], cuisine: "American", protein: 14, noReheat: true },
+  { title: "Omelette Sandwich", slots: ["school_lunch", "lunch"], cuisine: "American", protein: 16, noReheat: true },
+  { title: "Chicken Tenders", slots: ["school_lunch"], cuisine: "American", protein: 20, noReheat: true, veg: false },
 ];
 
 async function main() {
@@ -98,9 +104,9 @@ async function main() {
       cuisine: s.cuisine,
       source: "user",
       mealTypes: s.slots,
-      isVegetarianBase: true, // eggs count as vegetarian for this family
+      isVegetarianBase: s.veg ?? true, // eggs count as vegetarian for this family
       isNutFree: s.nutFree ?? true,
-      noReheatOk: false,
+      noReheatOk: Boolean(s.noReheat),
       kidFriendly: true,
       needsPrep: Boolean(s.needsPrep),
       totalTimeMinutes: 20,

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Backpack,
   Bookmark as BookmarkIcon,
   BookOpen,
   Check,
@@ -511,6 +512,11 @@ function FavoritesQuickAdd({
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-faint">
                   <Clock size={9} /> {r.totalTimeMinutes}min
+                  {r.mealTypes.includes("school_lunch") && (
+                    <span className="inline-flex items-center gap-0.5 text-accent-deep">
+                      <Backpack size={9} /> lunchbox
+                    </span>
+                  )}
                   {r.needsPrep && (
                     <span className="inline-flex items-center gap-0.5 text-terra">
                       <Hourglass size={9} /> prep
