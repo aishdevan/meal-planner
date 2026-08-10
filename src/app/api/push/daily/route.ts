@@ -45,9 +45,16 @@ export async function GET(req: NextRequest) {
     .where(inArray(tables.recipes.id, active.map((e) => e.recipeId)));
   const titleById = new Map(recipes.map((r) => [r.id, r.title]));
 
-  const parts = active
-    .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
-    .map((e) => `${SLOT_SHORT[e.slot] ?? e.slot}: ${titleById.get(e.recipeId) ?? "?"}`);
+  // A slot can hold several dishes (cereal + idli) — group and join them.
+  const bySlot = new Map<string, string[]>();
+  for (const e of active) {
+    const titles = bySlot.get(e.slot) ?? [];
+    titles.push(titleById.get(e.recipeId) ?? "?");
+    bySlot.set(e.slot, titles);
+  }
+  const parts = SLOT_ORDER.filter((s) => bySlot.has(s)).map(
+    (s) => `${SLOT_SHORT[s] ?? s}: ${bySlot.get(s)!.join(" + ")}`,
+  );
 
   const dayName = new Date(today + "T12:00:00").toLocaleDateString("en-US", {
     weekday: "long",

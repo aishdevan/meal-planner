@@ -6,7 +6,7 @@
  *  - navigation → network-first, fall back to cached page shell
  * Mutations (POST/PATCH/DELETE) always require the network.
  */
-const CACHE = "meals-v4";
+const CACHE = "meals-v5";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

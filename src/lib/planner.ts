@@ -504,17 +504,14 @@ async function persistPlan(
       if (!allowedSlots.includes(s.slot)) continue;
       const recipeId = s.recipe_id ?? refToId.get(s.new_recipe_ref ?? "");
       if (!recipeId) continue;
-      await db
-        .insert(tables.planEntries)
-        .values({
-          date: day.date,
-          slot: s.slot,
-          recipeId,
-          includeAddon: s.include_addon,
-          generatedBy: "claude",
-          why: s.why,
-        })
-        .onConflictDoNothing();
+      await db.insert(tables.planEntries).values({
+        date: day.date,
+        slot: s.slot,
+        recipeId,
+        includeAddon: s.include_addon,
+        generatedBy: "claude",
+        why: s.why,
+      });
       planned++;
     }
   }

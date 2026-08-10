@@ -9,6 +9,7 @@ import {
   Flame,
   Meh,
   Palmtree,
+  Plus,
   Replace,
   Search,
   Soup,
@@ -34,7 +35,10 @@ export default function TodayPage() {
   const qc = useQueryClient();
   const [openEntry, setOpenEntry] = useState<string | null>(null);
   const [rateFor, setRateFor] = useState<CookedResult | null>(null);
-  const [changing, setChanging] = useState<PlanEntry | null>(null);
+  const [changing, setChanging] = useState<{
+    entry: PlanEntry;
+    mode: "replace" | "add";
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["plan", weekStart],
@@ -112,7 +116,8 @@ export default function TodayPage() {
               setOpenEntry(openEntry === entry.id ? null : entry.id)
             }
             onCooked={() => cook.mutate(entry.id)}
-            onChange={() => setChanging(entry)}
+            onChange={() => setChanging({ entry, mode: "replace" })}
+            onAdd={() => setChanging({ entry, mode: "add" })}
             cooking={cook.isPending}
           />
         );
@@ -121,7 +126,8 @@ export default function TodayPage() {
       {rateFor && <RateSheet result={rateFor} onDone={() => setRateFor(null)} />}
       {changing && (
         <ChangeMealSheet
-          entry={changing}
+          entry={changing.entry}
+          mode={changing.mode}
           recipes={recipesData?.recipes ?? []}
           onClose={() => setChanging(null)}
         />
@@ -137,6 +143,7 @@ function MealCard({
   onToggle,
   onCooked,
   onChange,
+  onAdd,
   cooking,
 }: {
   entry: PlanEntry;
@@ -145,6 +152,7 @@ function MealCard({
   onToggle: () => void;
   onCooked: () => void;
   onChange: () => void;
+  onAdd: () => void;
   cooking: boolean;
 }) {
   const done = entry.status === "cooked";
@@ -208,12 +216,20 @@ function MealCard({
               >
                 {cooking ? "Saving…" : "Mark cooked"}
               </button>
-              <button
-                onClick={onChange}
-                className="btn-secondary flex w-full items-center justify-center gap-2 py-3 text-sm"
-              >
-                <Replace size={15} /> Made something else?
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={onChange}
+                  className="btn-secondary flex flex-1 items-center justify-center gap-1.5 py-3 text-sm"
+                >
+                  <Replace size={15} /> Made something else?
+                </button>
+                <button
+                  onClick={onAdd}
+                  className="btn-secondary flex flex-1 items-center justify-center gap-1.5 py-3 text-sm"
+                >
+                  <Plus size={15} /> Add a dish
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -226,10 +242,12 @@ function MealCard({
  *  first, searchable, and school-lunch stays nut-free + no-reheat. */
 function ChangeMealSheet({
   entry,
+  mode,
   recipes,
   onClose,
 }: {
   entry: PlanEntry;
+  mode: "replace" | "add";
   recipes: Recipe[];
   onClose: () => void;
 }) {
@@ -239,10 +257,15 @@ function ChangeMealSheet({
 
   const patch = useMutation({
     mutationFn: (recipeId: string) =>
-      api(`/api/plan/entry/${entry.id}`, {
-        method: "PATCH",
-        json: { recipeId },
-      }),
+      mode === "add"
+        ? api("/api/plan/entry", {
+            method: "POST",
+            json: { date: entry.date, slot: entry.slot, recipeId },
+          })
+        : api(`/api/plan/entry/${entry.id}`, {
+            method: "PATCH",
+            json: { recipeId },
+          }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["plan"] });
       qc.invalidateQueries({ queryKey: ["grocery"] });
@@ -279,10 +302,12 @@ function ChangeMealSheet({
           {SLOT_LABELS[entry.slot]}
         </div>
         <h3 className="mt-1 text-xl font-bold tracking-tight">
-          What did you make instead?
+          {mode === "add" ? "Add a dish to this meal" : "What did you make instead?"}
         </h3>
         <p className="mt-1 text-sm text-soft">
-          Swaps today&apos;s plan and updates the grocery list.
+          {mode === "add"
+            ? "Keeps what's here and adds another dish alongside."
+            : "Swaps today's plan and updates the grocery list."}
           {isSchoolLunch && " Nut-free & no-reheat only."}
         </p>
         {error && <p className="mt-2 text-sm text-bad">{error}</p>}

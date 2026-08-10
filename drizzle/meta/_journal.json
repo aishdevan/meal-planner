@@ -43,6 +43,13 @@
       "when": 1786319217541,
       "tag": "0005_ancient_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786334091963,
+      "tag": "0006_jittery_riptide",
+      "breakpoints": true
     }
   ]
 }

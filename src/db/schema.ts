@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -161,7 +162,9 @@ export const planEntries = pgTable(
     notes: text("notes"),
     ...timestamps,
   },
-  (t) => [uniqueIndex("plan_entries_date_slot_idx").on(t.date, t.slot)],
+  // A slot can hold several dishes (e.g. breakfast = cereal + idli, lunch =
+  // chapati + chole), so this is a plain lookup index, not a unique one.
+  (t) => [index("plan_entries_date_slot_idx").on(t.date, t.slot)],
 );
 
 export const pantryItems = pgTable(

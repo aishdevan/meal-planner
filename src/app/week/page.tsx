@@ -22,6 +22,7 @@ import {
   Palmtree,
   Plus,
   RotateCcw,
+  Search,
   Send,
   ShoppingCart,
   Soup,
@@ -64,6 +65,10 @@ export default function WeekPage() {
   const [showAway, setShowAway] = useState(false);
   const [showLeftovers, setShowLeftovers] = useState(false);
   const [addingFav, setAddingFav] = useState<Recipe | null>(null);
+  const [addingToSlot, setAddingToSlot] = useState<{
+    date: string;
+    slot: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -96,8 +101,13 @@ export default function WeekPage() {
   });
 
   const recipeById = new Map((data?.recipes ?? []).map((r) => [r.id, r]));
-  const entryFor = (date: string, slot: string) =>
-    data?.entries.find((e) => e.date === date && e.slot === slot);
+  const entriesFor = (date: string, slot: string) =>
+    (data?.entries ?? [])
+      .filter((e) => e.date === date && e.slot === slot)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
   const hasAnyPlan = (data?.entries.length ?? 0) > 0;
 
   return (
@@ -211,47 +221,65 @@ export default function WeekPage() {
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
                   {SLOT_ORDER.map((slot) => {
-                    const entry = entryFor(date, slot);
-                    const recipe = entry ? recipeById.get(entry.recipeId) : null;
-                    if (!entry || !recipe) {
+                    const slotEntries = entriesFor(date, slot);
+                    if (slotEntries.length === 0) {
                       return (
-                        <div
+                        <button
                           key={slot}
-                          className="rounded-2xl border border-dashed border-line px-2.5 py-2 text-[10px] uppercase tracking-wider text-faint"
+                          onClick={() => setAddingToSlot({ date, slot })}
+                          className="flex items-center gap-1 rounded-2xl border border-dashed border-line px-2.5 py-2 text-left text-[10px] uppercase tracking-wider text-faint transition active:bg-accent-soft"
                         >
                           {SLOT_LABELS[slot]}
-                        </div>
+                          <Plus size={11} className="text-accent" />
+                        </button>
                       );
                     }
                     return (
-                      <button
+                      <div
                         key={slot}
-                        onClick={() => setSelected({ entry, recipe })}
-                        className={`rounded-2xl border border-line px-2.5 py-2 text-left transition active:scale-[.98] ${
-                          entry.status === "cooked"
-                            ? "bg-good-soft"
-                            : entry.status === "leftover"
-                              ? "bg-terra-soft"
-                              : entry.status === "skipped"
-                                ? "bg-surface/40 opacity-50"
-                                : "bg-surface/60"
-                        }`}
+                        className="rounded-2xl border border-line bg-surface/60 px-2.5 py-2"
                       >
-                        <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-faint">
+                        <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-faint">
                           {SLOT_LABELS[slot]}
-                          {entry.status === "cooked" && (
-                            <Check size={10} className="text-good" />
-                          )}
-                          {entry.status === "leftover" && (
-                            <span className="inline-flex items-center gap-0.5 text-terra">
-                              <Soup size={10} /> leftovers
-                            </span>
-                          )}
                         </div>
-                        <div className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug">
-                          {recipe.title}
+                        <div className="mt-0.5 space-y-1">
+                          {slotEntries.map((entry) => {
+                            const recipe = recipeById.get(entry.recipeId);
+                            if (!recipe) return null;
+                            return (
+                              <button
+                                key={entry.id}
+                                onClick={() => setSelected({ entry, recipe })}
+                                className={`flex w-full items-start gap-1 rounded-lg px-1.5 py-1 text-left transition active:scale-[.98] ${
+                                  entry.status === "cooked"
+                                    ? "bg-good-soft"
+                                    : entry.status === "leftover"
+                                      ? "bg-terra-soft"
+                                      : entry.status === "skipped"
+                                        ? "opacity-50"
+                                        : ""
+                                }`}
+                              >
+                                {entry.status === "cooked" && (
+                                  <Check size={11} className="mt-0.5 shrink-0 text-good" />
+                                )}
+                                {entry.status === "leftover" && (
+                                  <Soup size={11} className="mt-0.5 shrink-0 text-terra" />
+                                )}
+                                <span className="line-clamp-2 text-xs font-medium leading-snug">
+                                  {recipe.title}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      </button>
+                        <button
+                          onClick={() => setAddingToSlot({ date, slot })}
+                          className="mt-1 flex items-center gap-0.5 px-1.5 text-[10px] font-semibold text-accent-deep"
+                        >
+                          <Plus size={10} /> dish
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -292,6 +320,138 @@ export default function WeekPage() {
           onClose={() => setShowLeftovers(false)}
         />
       )}
+      {addingToSlot && (
+        <AddDishSheet
+          date={addingToSlot.date}
+          slot={addingToSlot.slot}
+          recipes={recipesData?.recipes ?? []}
+          existingRecipeIds={entriesFor(
+            addingToSlot.date,
+            addingToSlot.slot,
+          ).map((e) => e.recipeId)}
+          onClose={() => setAddingToSlot(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Add another dish to a slot on the Week grid (a slot can hold several). */
+function AddDishSheet({
+  date,
+  slot,
+  recipes,
+  existingRecipeIds,
+  onClose,
+}: {
+  date: string;
+  slot: string;
+  recipes: Recipe[];
+  existingRecipeIds: string[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const already = new Set(existingRecipeIds);
+
+  const add = useMutation({
+    mutationFn: (recipeId: string) =>
+      api("/api/plan/entry", {
+        method: "POST",
+        json: { date, slot, recipeId },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan"] });
+      qc.invalidateQueries({ queryKey: ["grocery"] });
+      qc.invalidateQueries({ queryKey: ["coverage"] });
+      onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const isSchoolLunch = slot === "school_lunch";
+  const needle = q.trim().toLowerCase();
+  const options = recipes
+    .filter((r) => !already.has(r.id))
+    .filter((r) => r.mealTypes.includes(slot))
+    .filter((r) => !isSchoolLunch || (r.isNutFree && r.noReheatOk))
+    .filter((r) => !needle || r.title.toLowerCase().includes(needle))
+    .sort((a, b) =>
+      a.isFavorite === b.isFavorite
+        ? a.title.localeCompare(b.title)
+        : a.isFavorite
+          ? -1
+          : 1,
+    );
+
+  const dayLabel = new Date(date + "T12:00:00").toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="sheet flex max-h-[85vh] w-full max-w-lg flex-col p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent-deep">
+          {dayLabel} · {SLOT_LABELS[slot]}
+        </div>
+        <h3 className="mt-1 text-xl font-bold tracking-tight">Add a dish</h3>
+        <p className="mt-1 text-sm text-soft">
+          Adds alongside what&apos;s already in this meal.
+          {isSchoolLunch && " Nut-free & no-reheat only."}
+        </p>
+        {error && <p className="mt-2 text-sm text-bad">{error}</p>}
+
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5">
+          <Search size={15} className="shrink-0 text-faint" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search your meals…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-faint"
+          />
+        </div>
+
+        <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto">
+          {options.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => add.mutate(r.id)}
+              disabled={add.isPending}
+              className="w-full rounded-2xl border border-line bg-surface/60 px-3.5 py-2.5 text-left transition active:scale-[.99] disabled:opacity-50"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{r.title}</span>
+                {r.isFavorite && (
+                  <Star size={13} className="shrink-0 fill-accent text-accent" />
+                )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-soft">
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={11} /> {r.totalTimeMinutes}min
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Dumbbell size={11} /> {r.proteinGBase}
+                  {r.proteinGWithAddon ? `–${r.proteinGWithAddon}` : ""}g
+                </span>
+              </div>
+            </button>
+          ))}
+          {options.length === 0 && (
+            <p className="py-6 text-center text-sm text-faint">
+              Nothing else fits this slot. Add it from the Recipes tab first.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
