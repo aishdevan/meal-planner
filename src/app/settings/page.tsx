@@ -197,14 +197,23 @@ function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) 
   >("loading");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testMsg, setTestMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const support = pushSupport();
-    if (support !== "ok") {
-      setStatus(support === "needs-install" ? "needs-install" : "unsupported");
-      return;
-    }
-    currentSubscription().then((sub) => setStatus(sub ? "on" : "off"));
+    let cancelled = false;
+    (async () => {
+      const support = pushSupport();
+      if (support !== "ok") {
+        if (!cancelled)
+          setStatus(support === "needs-install" ? "needs-install" : "unsupported");
+        return;
+      }
+      const sub = await currentSubscription();
+      if (!cancelled) setStatus(sub ? "on" : "off");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function toggle() {
@@ -221,6 +230,26 @@ function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) 
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendTest() {
+    setBusy(true);
+    setError(null);
+    setTestMsg(null);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const data = (await res.json()) as { sent?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Send failed");
+      setTestMsg(
+        data.sent
+          ? `Sent to ${data.sent} phone${data.sent > 1 ? "s" : ""} — check your lock screen.`
+          : "No phones are subscribed yet — turn notifications on first.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Send failed.");
     } finally {
       setBusy(false);
     }
@@ -262,6 +291,16 @@ function ReminderSection({ vapidPublicKey }: { vapidPublicKey: string | null }) 
               : "Turn on notifications"}
         </button>
       )}
+      {status === "on" && (
+        <button
+          onClick={sendTest}
+          disabled={busy}
+          className="btn-secondary mt-2 w-full py-3 text-sm disabled:opacity-50"
+        >
+          {busy ? "Sending…" : "Send a test notification"}
+        </button>
+      )}
+      {testMsg && <p className="mt-2 text-xs text-good">{testMsg}</p>}
       {error && <p className="mt-2 text-xs text-bad">{error}</p>}
     </section>
   );

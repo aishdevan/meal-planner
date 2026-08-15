@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
@@ -12,6 +13,7 @@ import {
   Plus,
   Replace,
   Search,
+  Settings,
   Soup,
   Star,
   ThumbsDown,
@@ -71,15 +73,24 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-4">
-      <header className="pt-3">
-        <h1 className="text-[28px] font-bold tracking-tight">Today</h1>
-        <p className="text-sm text-soft">
-          {new Date().toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+      <header className="flex items-start justify-between pt-3">
+        <div>
+          <h1 className="text-[28px] font-bold tracking-tight">Today</h1>
+          <p className="text-sm text-soft">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="btn-secondary flex items-center px-3 py-2.5"
+        >
+          <Settings size={18} />
+        </Link>
       </header>
 
       {isLoading && <p className="text-faint">Loading…</p>}
