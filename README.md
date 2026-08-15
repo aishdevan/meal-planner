@@ -35,6 +35,7 @@ pnpm vitest run                # logic tests (grocery derivation, constraints)
 `.env.local` keys: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `MOCK_CLAUDE`,
 `AUTH_SECRET` (rotating logs out all devices), `HOUSEHOLD_PASSCODE`,
 `SHORTCUT_TOKEN` (Apple Shortcut bearer token),
+`HQ_SYNC_TOKEN` (Family HQ bearer token — see "Family HQ" below),
 `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`
 (web push — `npx web-push generate-vapid-keys`), `CRON_SECRET` (protects the
 Sunday-nudge cron endpoint; Vercel sends it automatically).
@@ -49,7 +50,9 @@ Sunday-nudge cron endpoint; Vercel sends it automatically).
    `AUTH_SECRET`, `HOUSEHOLD_PASSCODE`, `SHORTCUT_TOKEN` (generate fresh:
    `openssl rand -hex 16`), `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
    `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:you@example.com`),
-   `CRON_SECRET` (any random string), and remove/leave `MOCK_CLAUDE` unset.
+   `CRON_SECRET` (any random string), `HQ_SYNC_TOKEN` (`openssl rand -hex 16`;
+   leave unset to keep the Family HQ endpoint closed), and remove/leave
+   `MOCK_CLAUDE` unset.
    The Sunday-4pm-UTC cron in `vercel.json` sends the "plan your week" push
    to every phone that enabled the reminder in Settings.
 4. **Phones**: open the URL in Safari → Share → **Add to Home Screen** on both
@@ -60,6 +63,32 @@ Sunday-nudge cron endpoint; Vercel sends it automatically).
 Weekly Claude cost is well under $1/month (one plan generation ≈ $0.06–0.08 at
 Sonnet pricing); a per-day API call cap is enforced in
 [src/lib/claude.ts](src/lib/claude.ts).
+
+## Family HQ
+
+The household also runs [Family HQ](https://github.com/aishdevan/house-manager),
+a Claude-agent chief-of-staff that owns calendars, school email and money. The
+two systems are blind in opposite directions: this app knows the kitchen and
+nothing about the world; HQ knows the world and nothing about food.
+
+`GET /api/hq/week?weekStart=YYYY-MM-DD` is the read side of that — plan,
+grocery list by store, current absences, and coverage gaps in one call:
+
+```bash
+curl -H "Authorization: Bearer $HQ_SYNC_TOKEN" \
+  "https://<app>/api/hq/week?weekStart=2026-08-17"
+```
+
+It uses a bearer token rather than the household cookie because HQ's weekly
+briefing runs unattended and can't complete a login. Unset `HQ_SYNC_TOKEN` and
+the endpoint returns 401 to everyone.
+
+The valuable direction is the one not built yet: HQ knows about travel and
+school closures, and `absences` drives four rules in
+[src/lib/constraints.ts](src/lib/constraints.ts). A week planned without them
+is quietly wrong — veg-base dinners held for a household the vegetarian isn't
+in, school lunches packed for days with no school. A future
+`PUT /api/hq/absences` closes that loop.
 
 ## Key files
 

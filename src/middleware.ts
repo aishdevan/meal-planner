@@ -3,8 +3,9 @@ import { AUTH_COOKIE, expectedAuthToken } from "@/lib/auth";
 
 /**
  * Central auth gate: every page and API route requires the household cookie,
- * except login, the PWA plumbing, and /api/bookmarks POST (which accepts the
- * Apple Shortcut's bearer token — verified in the route itself).
+ * except login, the PWA plumbing, /api/bookmarks POST (which accepts the
+ * Apple Shortcut's bearer token — verified in the route itself), and the
+ * bearer-authenticated machine routes for Vercel Cron and Family HQ.
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -29,6 +30,11 @@ export async function middleware(req: NextRequest) {
     (pathname === "/api/push/nudge" || pathname === "/api/push/daily") &&
     req.headers.get("authorization")
   ) {
+    return NextResponse.next();
+  }
+
+  // Family HQ reads the week with its own bearer token; the route validates.
+  if (pathname.startsWith("/api/hq/") && req.headers.get("authorization")) {
     return NextResponse.next();
   }
 
