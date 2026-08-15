@@ -31,6 +31,18 @@ export function isValidShortcutToken(header: string | null): boolean {
   return header === `Bearer ${token}`;
 }
 
+/**
+ * Family HQ — the household chief-of-staff system — reads the week over a
+ * bearer token rather than the household cookie, because its weekly briefing
+ * runs unattended and cannot complete a login flow. Scoped to /api/hq/*, so
+ * rotating HQ_SYNC_TOKEN revokes that access without touching device sessions.
+ */
+export function isValidHqToken(header: string | null): boolean {
+  const token = process.env.HQ_SYNC_TOKEN;
+  if (!token || !header) return false;
+  return header === `Bearer ${token}`;
+}
+
 export function unauthorized() {
   return Response.json({ error: "unauthorized" }, { status: 401 });
 }
